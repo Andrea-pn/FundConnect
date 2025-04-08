@@ -33,6 +33,12 @@ body {
   background-color: #33a17c;
 }
 
+button{
+  margin: 5px;
+  margin-inline-start: 20px;
+  margin-block-end: 20px;
+}
+
 /* Hero Section */
 .container.text-center {
   padding: 100px 0;
@@ -107,7 +113,26 @@ p {
     color: #14815a;
   }
   
+  /*Team Section*/
+  .team-card {
+    width: 90%;
+    max-width: 250px;
+    padding: 5px;
+    background-color: #f8f9fb;
+  }
   
+  .team-img {
+    width: 120px;  /* Adjust as needed */
+    height: 120px; /* Maintain aspect ratio */
+    object-fit: cover; /* Ensures image fills the circle */
+    border: 3px solid #ddd; /* Optional: adds a border around the image */
+  }
+  
+  
+  #team {
+    background-color: #f8f9fb;
+    padding-top: 40px 0;
+  }
   /* Contact Us Section */
   #contact {
     background-color: #14815a;

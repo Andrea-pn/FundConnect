@@ -151,6 +151,30 @@ const LandingPage = () => {
         </Row>
       </Container>
 
+      <Container id="team" className="TeamSection">
+  <h2 className="text-center mb-4">Meet Our Team</h2>
+  <p className="text-muted text-center mb-4">Dedicated professionals behind our success.</p>
+  <Row className="justify-content-center">
+    {teamMembers.map((member, index) => (
+      <Col key={index} md={4} sm={6} xs={12} className="d-flex justify-content-center">
+        <Card className="team-card text-center border-0">
+          <Card.Img
+            variant="top"
+            src={member.image}
+            alt={member.name}
+            className="team-img rounded-circle mx-auto d-block"
+          />
+          <Card.Body>
+            <Card.Title>{member.name}</Card.Title>
+            <Card.Text>{member.description}</Card.Text>
+          </Card.Body>
+        </Card>
+      </Col>
+    ))}
+  </Row>
+</Container>
+
+
       <Container id="contact" fluid className="my-5 text-center w-100 m-0">
         <h2>Contact Us</h2>
         <p>

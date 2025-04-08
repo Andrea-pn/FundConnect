@@ -50,7 +50,7 @@ const SignIn = () => {
   };
 
   return (
-    <Container fluid className="auth-container d-flex align-items-center justify-content-center">
+    <Container fluid className="auth-container d-flex align-items-center justify-content-center" style={{marginTop: "2vw"}}>
       <Row className="auth-row g-0">
         {/* Image Card with Social Login Buttons */}
         <Col md={6} className="d-none d-md-block">
@@ -158,7 +158,7 @@ const SignIn = () => {
                 </div>
                 <Button 
                   variant="primary" 
-                  className="social-btn facebook-btn mb-3 w-100"
+                  className="social-btn facebook-btn mb-auto w-100"
                   onClick={() => handleSocialLogin('facebook')}
                 >
                   <FaFacebook className="me-2" />
