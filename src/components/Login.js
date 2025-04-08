@@ -39,7 +39,7 @@ const Login = () => {
   };
 
   return (
-    <Container fluid className="auth-container d-flex align-items-center justify-content-center">
+    <Container fluid className="auth-container d-flex align-items-center justify-content-center" style={{marginTop: "5vw"}}>
       <Row className="auth-row g-0">
         <Col md={6} className="d-none d-md-block">
           <Card className="auth-image-card h-100 position-relative">
