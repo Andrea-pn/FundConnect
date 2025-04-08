@@ -6,6 +6,9 @@ import Sidebar from './Sidebar';
 const Events = ({ darkMode }) => {
   const navigate = useNavigate();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [currentEvent, setCurrentEvent] = useState(null);
   const [events, setEvents] = useState([
     { 
       id: 1, 
@@ -54,6 +57,49 @@ const Events = ({ darkMode }) => {
   });
   
   const [error, setError] = useState('');
+
+  // Function to handle the edit button click
+  const handleEditClick = (event) => {
+    setCurrentEvent(event);
+    setNewEvent({
+      ...event,
+      date: event.date
+    });
+    setShowEditModal(true);
+  };
+
+  // Function to save edited event
+  const handleEditEvent = () => {
+    if (!newEvent.name || !newEvent.location || !newEvent.date) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    setEvents(events.map(event => 
+      event.id === currentEvent.id ? {
+        ...newEvent,
+        amountCollected: parseFloat(newEvent.amountCollected),
+        targetAmount: parseFloat(newEvent.targetAmount)
+      } : event
+    ));
+    
+    setShowEditModal(false);
+    setCurrentEvent(null);
+    setError('');
+  };
+
+  // Function to handle the delete button click
+  const handleDeleteClick = (event) => {
+    setCurrentEvent(event);
+    setShowDeleteModal(true);
+  };
+
+  // Function to confirm event deletion
+  const handleDeleteEvent = () => {
+    setEvents(events.filter(event => event.id !== currentEvent.id));
+    setShowDeleteModal(false);
+    setCurrentEvent(null);
+  };
 
   const handleAddEvent = () => {
     if (!newEvent.name || !newEvent.location || !newEvent.date) {
@@ -124,6 +170,23 @@ const Events = ({ darkMode }) => {
           : 'radial-gradient(circle at 80% 10%, rgba(54, 135, 90, 0.15) 0%, rgba(240, 255, 244, 0.05) 100%)',
         backgroundAttachment: 'fixed'
       }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          marginBottom: '20px',
+          alignItems: 'center'
+        }}>
+          <h1 style={{ color: darkMode ? '#e1e1e1' : '#333' }}>
+            Events
+          </h1>
+          <Button 
+            variant={darkMode ? 'outline-danger' : 'danger'} 
+            onClick={() => navigate('/')}
+          >
+            Logout
+          </Button>
+        </div>
+        
         <Card style={{ 
           backgroundColor: colors.cardBg,
           color: colors.cardText,
@@ -226,12 +289,14 @@ const Events = ({ darkMode }) => {
                         variant={darkMode ? "outline-info" : "info"} 
                         size="sm" 
                         className="me-2"
+                        onClick={() => handleEditClick(event)}
                       >
                         Edit
                       </Button>
                       <Button 
                         variant={darkMode ? "outline-danger" : "danger"} 
                         size="sm"
+                        onClick={() => handleDeleteClick(event)}
                       >
                         Delete
                       </Button>
@@ -361,6 +426,150 @@ const Events = ({ darkMode }) => {
             </Button>
             <Button variant="primary" onClick={handleAddEvent}>
               Save Event
+            </Button>
+          </Modal.Footer>
+        </Modal>
+        
+        {/* Edit Event Modal */}
+        <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
+          <Modal.Header 
+            closeButton 
+            className={darkMode ? "bg-dark text-light" : ""}
+            closeVariant={darkMode ? "white" : undefined}
+          >
+            <Modal.Title>Edit Event</Modal.Title>
+          </Modal.Header>
+          <Modal.Body className={darkMode ? "bg-dark text-light" : ""}>
+            {error && <Alert variant="danger">{error}</Alert>}
+            <Form>
+              <Form.Group className="mb-3">
+                <Form.Label>Event Name</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={newEvent.name}
+                  onChange={(e) => setNewEvent({...newEvent, name: e.target.value})}
+                  className={darkMode ? "bg-dark text-light" : ""}
+                  placeholder="Enter event name"
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Event Type</Form.Label>
+                <Form.Select
+                  value={newEvent.type}
+                  onChange={(e) => setNewEvent({...newEvent, type: e.target.value})}
+                  className={darkMode ? "bg-dark text-light" : ""}
+                >
+                  <option value="Wedding">Wedding</option>
+                  <option value="Funeral">Funeral</option>
+                  <option value="Harambee">Harambee</option>
+                  <option value="Other">Other</option>
+                </Form.Select>
+              </Form.Group>
+
+              <Row>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Amount Collected (Ksh)</Form.Label>
+                    <Form.Control
+                      type="number"
+                      value={newEvent.amountCollected}
+                      onChange={(e) => setNewEvent({...newEvent, amountCollected: e.target.value})}
+                      className={darkMode ? "bg-dark text-light" : ""}
+                      min="0"
+                      step="100"
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={6}>
+                  <Form.Group className="mb-3">
+                    <Form.Label>Target Amount (Ksh)</Form.Label>
+                    <Form.Control
+                      type="number"
+                      value={newEvent.targetAmount}
+                      onChange={(e) => setNewEvent({...newEvent, targetAmount: e.target.value})}
+                      className={darkMode ? "bg-dark text-light" : ""}
+                      min="0"
+                      step="100"
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Date</Form.Label>
+                <Form.Control
+                  type="date"
+                  value={newEvent.date}
+                  onChange={(e) => setNewEvent({...newEvent, date: e.target.value})}
+                  className={darkMode ? "bg-dark text-light" : ""}
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Location</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={newEvent.location}
+                  onChange={(e) => setNewEvent({...newEvent, location: e.target.value})}
+                  className={darkMode ? "bg-dark text-light" : ""}
+                  placeholder="Enter event location"
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Organizer</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={newEvent.organizer}
+                  onChange={(e) => setNewEvent({...newEvent, organizer: e.target.value})}
+                  className={darkMode ? "bg-dark text-light" : ""}
+                  placeholder="Enter organizer name"
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Status</Form.Label>
+                <Form.Select
+                  value={newEvent.status}
+                  onChange={(e) => setNewEvent({...newEvent, status: e.target.value})}
+                  className={darkMode ? "bg-dark text-light" : ""}
+                >
+                  <option value="Active">Active</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </Form.Select>
+              </Form.Group>
+            </Form>
+          </Modal.Body>
+          <Modal.Footer className={darkMode ? "bg-dark text-light" : ""}>
+            <Button variant="secondary" onClick={() => setShowEditModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleEditEvent}>
+              Update Event
+            </Button>
+          </Modal.Footer>
+        </Modal>
+        
+        {/* Delete Confirmation Modal */}
+        <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)}>
+          <Modal.Header 
+            closeButton 
+            className={darkMode ? "bg-dark text-light" : ""}
+            closeVariant={darkMode ? "white" : undefined}
+          >
+            <Modal.Title>Confirm Delete</Modal.Title>
+          </Modal.Header>
+          <Modal.Body className={darkMode ? "bg-dark text-light" : ""}>
+            Are you sure you want to delete the event "{currentEvent?.name}"? This action cannot be undone.
+          </Modal.Body>
+          <Modal.Footer className={darkMode ? "bg-dark text-light" : ""}>
+            <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDeleteEvent}>
+              Delete Event
             </Button>
           </Modal.Footer>
         </Modal>

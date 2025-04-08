@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { Table, Button, Form, Modal, Alert, Card, Badge, Row, Col } from 'react-bootstrap';
+import { Table, Button, Form, Modal, Alert, Card, Badge } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
+// Explicitly import jsPDF and the autotable plugin
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const Contributions = ({ darkMode }) => {
   const navigate = useNavigate();
@@ -51,6 +54,20 @@ const Contributions = ({ darkMode }) => {
   
   const [error, setError] = useState('');
 
+  // Function to handle the verification of a contribution
+  const handleVerify = (id) => {
+    setContributions(contributions.map(contribution => 
+      contribution.id === id ? { ...contribution, status: 'Verified' } : contribution
+    ));
+  };
+
+  // Function to handle the rejection of a contribution
+  const handleReject = (id) => {
+    setContributions(contributions.map(contribution => 
+      contribution.id === id ? { ...contribution, status: 'Rejected' } : contribution
+    ));
+  };
+
   const handleAddContribution = () => {
     if (!newContribution.member || !newContribution.amount || !newContribution.reference) {
       setError('Please fill in all required fields');
@@ -74,6 +91,71 @@ const Contributions = ({ darkMode }) => {
       status: 'Pending'
     });
     setError('');
+  };
+
+  // Fixed downloadPDF function
+  const downloadPDF = () => {
+    // Create a new jsPDF instance
+    const doc = new jsPDF();
+    
+    // Add title to the PDF
+    doc.setFontSize(18);
+    doc.text('Contributions Report', 14, 22);
+    
+    // Add date
+    doc.setFontSize(11);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+    
+    // Define the table columns and rows
+    const tableColumn = ["ID", "Member", "Type", "Amount", "Date", "Method", "Reference", "Status"];
+    const tableRows = [];
+    
+    // Populate table data
+    contributions.forEach(contrib => {
+      const contributionData = [
+        contrib.id,
+        contrib.member,
+        contrib.type,
+        `Ksh ${contrib.amount.toLocaleString()}`,
+        contrib.date,
+        contrib.paymentMethod,
+        contrib.reference,
+        contrib.status
+      ];
+      tableRows.push(contributionData);
+    });
+    
+    // Use autoTable directly as imported
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 35,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [66, 66, 99],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3
+      },
+      columnStyles: {
+        0: { cellWidth: 10 }, // ID 
+        3: { halign: 'right' } // Amount
+      }
+    });
+    
+    // Add a footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for(let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text('Page ' + String(i) + ' of ' + String(pageCount), doc.internal.pageSize.width - 30, doc.internal.pageSize.height - 10);
+    }
+    
+    // Save the PDF
+    doc.save('contributions-report.pdf');
   };
 
   const statusVariant = (status) => {
@@ -109,6 +191,23 @@ const Contributions = ({ darkMode }) => {
           : 'radial-gradient(circle at 80% 10%, rgba(54, 135, 90, 0.15) 0%, rgba(240, 255, 244, 0.05) 100%)',
         backgroundAttachment: 'fixed'
       }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          marginBottom: '20px',
+          alignItems: 'center'
+        }}>
+          <h1 style={{ color: darkMode ? '#e1e1e1' : '#333' }}>
+            Contributions
+          </h1>
+          <Button 
+            variant={darkMode ? 'outline-danger' : 'danger'} 
+            onClick={() => navigate('/')}
+          >
+            Logout
+          </Button>
+        </div>
+
         <Card style={{ 
           backgroundColor: colors.cardBg,
           color: colors.cardText,
@@ -135,12 +234,18 @@ const Contributions = ({ darkMode }) => {
           <Card.Body style={{ position: 'relative', zIndex: 1 }}>
             <div className="d-flex justify-content-between align-items-center mb-4">
               <h2 style={{ margin: 0, color: colors.cardText }}>Contributions Management</h2>
-              <Button 
-                variant={darkMode ? "outline-primary" : "primary"}
-                onClick={() => setShowAddModal(true)}
-              >
-                Record Contribution
-              </Button>
+              <div>
+                <Button 
+                  variant={darkMode ? "outline-success" : "success"}
+                  onClick={downloadPDF}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" className="bi bi-file-earmark-pdf me-2" viewBox="0 0 16 16">
+                    <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+                    <path d="M4.603 14.087a.81.81 0 0 1-.438-.42c-.195-.388-.13-.776.08-1.102.198-.307.526-.568.897-.787a7.68 7.68 0 0 1 1.482-.645 19.697 19.697 0 0 0 1.062-2.227 7.269 7.269 0 0 1-.43-1.295c-.086-.4-.119-.796-.046-1.136.075-.354.274-.672.65-.823.192-.077.4-.12.602-.077a.7.7 0 0 1 .477.365c.088.164.12.356.127.538.007.188-.012.396-.047.614-.084.51-.27 1.134-.52 1.794a10.954 10.954 0 0 0 .98 1.686 5.753 5.753 0 0 1 1.334.05c.364.066.734.195.96.465.12.144.193.32.2.518.007.192-.047.382-.138.563a1.04 1.04 0 0 1-.354.416.856.856 0 0 1-.51.138c-.331-.014-.654-.196-.933-.417a5.712 5.712 0 0 1-.911-.95 11.651 11.651 0 0 0-1.997.406 11.307 11.307 0 0 1-1.02 1.51c-.292.35-.609.656-.927.787a.793.793 0 0 1-.58.029zm1.379-1.901c-.166.076-.32.156-.459.238-.328.194-.541.383-.647.547-.094.145-.096.25-.04.361.01.022.02.036.026.044a.266.266 0 0 0 .035-.012c.137-.056.355-.235.635-.572a8.18 8.18 0 0 0 .45-.606zm1.64-1.33a12.71 12.71 0 0 1 1.01-.193 11.744 11.744 0 0 1-.51-.858 20.801 20.801 0 0 1-.5 1.05zm2.446.45c.15.163.296.3.435.41.24.19.407.253.498.256a.107.107 0 0 0 .07-.015.307.307 0 0 0 .094-.125.436.436 0 0 0 .059-.2.095.095 0 0 0-.026-.063c-.052-.062-.2-.152-.518-.209a3.876 3.876 0 0 0-.612-.053zM8.078 7.8a6.7 6.7 0 0 0 .2-.828c.031-.188.043-.343.038-.465a.613.613 0 0 0-.032-.198.517.517 0 0 0-.145.04c-.087.035-.158.106-.196.283-.04.192-.03.469.046.822.024.111.054.227.09.346z"/>
+                  </svg>
+                  Download Report
+                </Button>
+              </div>
             </div>
 
             <Table 
@@ -189,24 +294,56 @@ const Contributions = ({ darkMode }) => {
                       </Badge>
                     </td>
                     <td>
-                      <Button 
-                        variant={darkMode ? "outline-info" : "info"} 
-                        size="sm" 
-                        className="me-2"
-                      >
-                        Verify
-                      </Button>
-                      <Button 
-                        variant={darkMode ? "outline-danger" : "danger"} 
-                        size="sm"
-                      >
-                        Reject
-                      </Button>
+                      {contribution.status !== 'Verified' && (
+                        <Button 
+                          variant={darkMode ? "outline-info" : "info"} 
+                          size="sm" 
+                          className="me-2"
+                          onClick={() => handleVerify(contribution.id)}
+                        >
+                          Verify
+                        </Button>
+                      )}
+                      {contribution.status !== 'Rejected' && (
+                        <Button 
+                          variant={darkMode ? "outline-danger" : "danger"} 
+                          size="sm"
+                          onClick={() => handleReject(contribution.id)}
+                        >
+                          Reject
+                        </Button>
+                      )}
+                      {(contribution.status === 'Verified' || contribution.status === 'Rejected') && (
+                        <span className="text-muted small">
+                          {contribution.status}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </Table>
+            
+            {/* Modern plus button at the bottom right */}
+            <div className="d-flex justify-content-end mt-3">
+              <Button 
+                variant={darkMode ? "outline-success" : "success"}
+                onClick={() => setShowAddModal(true)}
+                style={{
+                  borderRadius: '50%',
+                  width: '48px',
+                  height: '48px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 4px 10px rgba(0, 0, 0, 0.15)'
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
+                </svg>
+              </Button>
+            </div>
           </Card.Body>
         </Card>
 
@@ -299,7 +436,7 @@ const Contributions = ({ darkMode }) => {
             <Button variant="secondary" onClick={() => setShowAddModal(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleAddContribution}>
+            <Button variant="success" onClick={handleAddContribution}>
               Save Contribution
             </Button>
           </Modal.Footer>
