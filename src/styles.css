@@ -1,0 +1,160 @@
+/* General Styles */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f8f9fa;
+}
+
+/* Navbar Styles */
+.navbar {
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #034a31, #33a17c, #034a31);
+  padding-bottom: 20px;
+  padding-top: 20px;
+}
+
+.navbar-brand {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.navbar-nav .nav-link {
+  color: white !important;
+  font-size: 1.1rem;
+}
+
+.Hbutton {
+  background-color: #034a31;
+  border: none;
+}
+
+.Hbutton:hover {
+  background-color: #33a17c;
+}
+
+button{
+  margin: 5px;
+  margin-inline-start: 20px;
+  margin-block-end: 20px;
+}
+
+/* Hero Section */
+.container.text-center {
+  padding: 100px 0;
+}
+
+h1 {
+  font-size: 3rem;
+  font-weight: bold;
+}
+
+p {
+  font-size: 1.2rem;
+  color: #6c757d;
+}
+
+/* About Us Section */
+#about {
+  background-color: white;
+  padding: 60px 0;
+}
+
+#about .t-divider {
+  width: 50px;
+  height: 4px;
+  background-color: #038c5c;
+  margin: 10px 0;
+}
+
+#about img {
+  max-width: 100%;
+  border-radius: 10px;
+}
+
+#about h2 {
+  font-family: 'Times New Roman', serif;
+}
+
+#about h4 {
+  font-family: 'Times New Roman', serif;
+}
+
+/* Services Section */
+#services {
+  background: #f1f1f1;
+  padding: 60px 0;
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+#services h2 {
+  margin-bottom: 40px;
+}
+
+#services .row {
+  margin-bottom: 40px;
+}
+
+/* Features Section */
+#features {
+  padding: 60px 0;
+}
+
+#features h2 {
+  margin-bottom: 40px;
+}
+
+#features .col-md-4 {
+  text-align: center;
+}
+
+  .feature-icon {
+    color: #14815a;
+  }
+  
+  /*Team Section*/
+  .team-card {
+    width: 90%;
+    max-width: 250px;
+    padding: 5px;
+    background-color: #f8f9fb;
+  }
+  
+  .team-img {
+    width: 120px;  /* Adjust as needed */
+    height: 120px; /* Maintain aspect ratio */
+    object-fit: cover; /* Ensures image fills the circle */
+    border: 3px solid #ddd; /* Optional: adds a border around the image */
+  }
+  
+  
+  #team {
+    background-color: #f8f9fb;
+    padding-top: 40px 0;
+  }
+  /* Contact Us Section */
+  #contact {
+    background-color: #14815a;
+    color: white;
+    padding: 60px 0;
+  }
+  
+  #contact p {
+    color: white;
+    font-size: 1.2rem;
+  }
+  
+  #contact a {
+    color: white;
+    text-decoration: none;
+    font-size: 2rem;
+  }
+  
+  #contact a:hover {
+    color: #f8f9fa;
+  }
+  
+  /*Settings Page css*/
+  
+  
