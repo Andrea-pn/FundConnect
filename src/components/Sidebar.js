@@ -1,140 +1,144 @@
-import React from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Nav, Badge } from 'react-bootstrap';
+import { 
+  FiHome, FiPieChart, FiUsers, FiDollarSign, 
+  FiCalendar, FiSettings, FiMail 
+} from 'react-icons/fi';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { ChamaContext } from '../App';
 
 const Sidebar = ({ darkMode }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [invitationCount, setInvitationCount] = useState(0);
+  const auth = getAuth();
+  const { activeChama, chamaLoading } = useContext(ChamaContext);
+  
+  useEffect(() => {
+    if (auth.currentUser) {
+      const q = query(
+        collection(db, 'invitations'),
+        where('invitedUserId', '==', auth.currentUser.uid),
+        where('status', '==', 'pending')
+      );
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        setInvitationCount(snapshot.size);
+      });
 
-  // Determine active menu item based on current path
-  const getActiveMenuItem = () => {
-    const path = location.pathname;
-    if (path.includes('/contributions')) return 'Contributions';
-    if (path.includes('/members')) return 'Members';
-    if (path.includes('/dashboard')) return 'Dashboard';
-    if (path.includes('/events')) return 'Events'; // Added Events check
-    return 'Dashboard'; // Default
-  };
+      return () => unsubscribe();
+    }
+  }, [auth.currentUser]);
 
-  const activeMenuItem = getActiveMenuItem();
- 
-  // Sidebar styling 
-  const colors = {
-    sidebar: darkMode 
-      ? 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)'
-      : 'linear-gradient(180deg, #36875a 0%, #287045 100%)',
+  const isActive = (path) => {
+    if (path === '/home') return location.pathname === '/home';
+    return location.pathname.startsWith(path) && 
+      (location.pathname === path || location.pathname.charAt(path.length) === '/');
   };
- 
-  // Modern icons for sidebar
-  const modernIcons = {
-    dashboard: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="7" height="7"></rect>
-        <rect x="14" y="3" width="7" height="7"></rect>
-        <rect x="14" y="14" width="7" height="7"></rect>
-        <rect x="3" y="14" width="7" height="7"></rect>
-      </svg>
-    ),
-    contributions: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-        <path d="M2 17l10 5 10-5"></path>
-        <path d="M2 12l10 5 10-5"></path>
-      </svg>
-    ),
-    members: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-        <circle cx="9" cy="7" r="4"></circle>
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-      </svg>
-    ),
-    events: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-        <line x1="16" y1="2" x2="16" y2="6"></line>
-        <line x1="8" y1="2" x2="8" y2="6"></line>
-        <line x1="3" y1="10" x2="21" y2="10"></line>
-      </svg>
-    ),
-    briefcase: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-      </svg>
-    )
-  };
-
-  // Sidebar menu item style
-  const menuItemStyle = (item) => ({
-    padding: '12px 20px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    borderRadius: '4px',
-    marginBottom: '5px',
-    backgroundColor: activeMenuItem === item 
-      ? (darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.2)') 
-      : 'transparent',
-    color: activeMenuItem === item 
-      ? '#fff' 
-      : (darkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.9)'),
-    fontWeight: activeMenuItem === item ? '600' : '400',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px'
-  });
 
   const handleNavigation = (path) => {
+    if (path.includes('/chama/') && !activeChama?.id) {
+      console.warn('No active chama selected');
+      return;
+    }
     navigate(path);
   };
 
+  const getMenuItems = () => {
+    const items = [
+      { path: '/home', title: 'Home', icon: <FiHome size={18} /> }
+    ];
+
+    if (activeChama) {
+      const chamaId = activeChama.id;
+      items.push(
+        { path: `/chama/${chamaId}`, title: 'Dashboard', icon: <FiPieChart size={18} /> },
+        { path: `/chama/${chamaId}/members`, title: 'Members', icon: <FiUsers size={18} /> },
+        { path: `/chama/${chamaId}/contributions`, title: 'Contributions', icon: <FiDollarSign size={18} /> },
+        { path: `/chama/${chamaId}/events`, title: 'Events', icon: <FiCalendar size={18} /> },
+        { path: `/chama/${chamaId}/invitations`, title: 'Invitations', icon: <FiMail size={18} />, badge: invitationCount },
+        { path: `/chama/${chamaId}/settings`, title: 'Settings', icon: <FiSettings size={18} /> }
+      );
+    }
+
+    return items;
+  };
+
+  const menuItems = getMenuItems();
+
   return (
-    <div className="sidebar" style={{ 
-      background: colors.sidebar, 
-      padding: '20px 0',
-      boxShadow: darkMode ? '2px 0 10px rgba(0,0,0,0.2)' : '2px 0 10px rgba(0,0,0,0.1)',
+    <div style={{
       width: '250px',
-      transition: 'all 0.3s ease'
+      background: darkMode ? '#1a1a2e' : '#36875a',
+      color: 'white',
+      height: '100vh',
+      position: 'fixed',
+      left: 0,
+      top: 0,
+      padding: '20px 0',
+      boxShadow: '2px 0 5px rgba(0,0,0,0.1)',
+      zIndex: 1000
     }}>
       <h2 style={{ 
-        color: 'white', 
         padding: '0 20px 20px', 
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
-        marginBottom: '20px',
+        borderBottom: '1px solid rgba(255,255,255,0.2)',
         display: 'flex',
-        alignItems: 'center'
-      }}>
-        <span style={{ marginRight: '10px' }}>{modernIcons.briefcase}</span>
-        Admin Panel
+        alignItems: 'center',
+        cursor: 'pointer'
+      }}
+      onClick={() => handleNavigation('/home')}
+      >
+        <FiHome className="me-2" size={20} />
+        Chama
       </h2>
-      <div>
-        {[
-          { name: 'Dashboard', path: '/dashboard', icon: modernIcons.dashboard },
-          { name: 'Members', path: '/members', icon: modernIcons.members },
-          { name: 'Contributions', path: '/contributions', icon: modernIcons.contributions },
-          { name: 'Events', path: '/events', icon: modernIcons.events } // Added Events menu item
-        ].map((item) => (
-          <div 
-            key={item.name} 
-            style={menuItemStyle(item.name)}
-            onClick={() => handleNavigation(item.path)}
-            onMouseEnter={(e) => {
-              if (activeMenuItem !== item.name) {
-                e.target.style.backgroundColor = darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.1)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (activeMenuItem !== item.name) {
-                e.target.style.backgroundColor = 'transparent';
-              }
-            }}
-          >
-            {item.icon}
-            {item.name}
-          </div>
+      
+      {activeChama && (
+        <div style={{ padding: '0 20px 10px', color: 'rgba(255,255,255,0.8)' }}>
+          <small>Active Chama:</small>
+          <h5>{activeChama.name || 'My Chama'}</h5>
+        </div>
+      )}
+      
+      <Nav variant="pills" className="flex-column">
+        {menuItems.map((item) => (
+          <Nav.Item key={item.path}>
+            <Nav.Link
+              active={isActive(item.path)}
+              onClick={() => handleNavigation(item.path)}
+              style={{
+                color: 'white',
+                borderRadius: '4px',
+                padding: '12px 20px',
+                margin: '0 10px 5px 10px',
+                background: isActive(item.path) ? 'rgba(255,255,255,0.2)' : 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'all 0.3s ease',
+              }}
+            >
+              <span style={{ marginRight: '12px', display: 'flex' }}>
+                {item.icon}
+              </span>
+              {item.title}
+              {item.badge > 0 && (
+                <Badge 
+                  pill 
+                  bg="danger" 
+                  style={{ 
+                    marginLeft: 'auto',
+                    fontSize: '0.75rem'
+                  }}
+                >
+                  {item.badge}
+                </Badge>
+              )}
+            </Nav.Link>
+          </Nav.Item>
         ))}
-      </div>
+      </Nav>
     </div>
   );
 };

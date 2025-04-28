@@ -1,10 +1,10 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useMemo } from 'react';
 import { 
   Container, Row, Col, Nav, Card, Badge, 
   ProgressBar, Button, Spinner, Alert
 } from 'react-bootstrap';
 import { 
-  Link, Outlet, useParams, useNavigate, 
+  Outlet, useParams, useNavigate, 
   useLocation, NavLink 
 } from 'react-router-dom';
 import { 
@@ -23,12 +23,32 @@ const ChamaLayout = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { activeChama, setActiveChama, refreshChama } = useContext(ChamaContext);
+  
+  // Context values with proper null checks
+  const context = useContext(ChamaContext);
+  const {
+    activeChama = null,
+    setActiveChama = () => {},
+    chamaLoading = false,
+    refreshChama = () => {},
+    fetchChamaData = () => {}
+  } = context || {};
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [chamaStats, setChamaStats] = useState(null);
   const auth = getAuth();
   const user = auth.currentUser;
+
+  // Memoized chama data calculation
+  const calculateStats = (data) => {
+    return {
+      progress: Math.min(100, Math.round((data.currentBalance / data.targetAmount) * 100) || 0),
+      membersPaid: data.membersPaid || 0,
+      totalMembers: data.memberCount || 0,
+      upcomingEvent: data.nextEvent || null
+    };
+  };
 
   // Fetch real-time chama data
   useEffect(() => {
@@ -38,33 +58,35 @@ const ChamaLayout = () => {
     }
 
     setLoading(true);
-    const unsubscribe = onSnapshot(doc(db, 'chamas', id), 
+    const unsubscribe = onSnapshot(
+      doc(db, 'chamas', id),
       (doc) => {
-        if (doc.exists()) {
+        try {
+          if (!doc.exists()) {
+            throw new Error('Chama not found');
+          }
+
           const data = doc.data();
-          setActiveChama({
+          const updatedChama = {
             id: doc.id,
             ...data,
             isAdmin: data.createdBy === user?.uid
-          });
-          
-          // Calculate some basic stats
-          setChamaStats({
-            progress: Math.min(100, Math.round((data.currentBalance / data.targetAmount) * 100)),
-            membersPaid: 15, // You would fetch this from your data
-            totalMembers: data.memberCount,
-            upcomingEvent: data.nextEvent || null
-          });
+          };
+
+          setActiveChama(updatedChama);
+          setChamaStats(calculateStats(data));
           setError(null);
-        } else {
-          setError('Chama not found');
-          toast.error('Chama not found');
+        } catch (err) {
+          console.error('Error processing chama data:', err);
+          setError(err.message);
+          toast.error(err.message);
           navigate('/home');
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       },
       (err) => {
-        console.error('Error fetching chama:', err);
+        console.error('Firestore error:', err);
         setError('Failed to load chama data');
         toast.error('Failed to load chama data');
         setLoading(false);
@@ -72,24 +94,32 @@ const ChamaLayout = () => {
     );
 
     return () => unsubscribe();
-  }, [id, user?.uid]);
+  }, [id, user?.uid, navigate, setActiveChama]);
+
+  // Provide context to child routes
+  const outletContext = useMemo(() => ({
+    chama: activeChama, 
+    stats: chamaStats,
+    refresh: refreshChama,
+    loading: loading || chamaLoading
+  }), [activeChama, chamaStats, refreshChama, loading, chamaLoading]);
 
   // Handle navigation to invite members
   const handleInviteClick = () => {
     navigate(`/chama/${id}/invitations`);
   };
 
-  if (loading) {
+  // Loading state
+  if (loading || chamaLoading) {
     return (
       <Container className="py-5 text-center">
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
+        <Spinner animation="border" role="status" />
         <p className="mt-3">Loading chama data...</p>
       </Container>
     );
   }
 
+  // Error states
   if (error) {
     return (
       <Container className="py-5">
@@ -103,6 +133,36 @@ const ChamaLayout = () => {
       </Container>
     );
   }
+
+  if (!activeChama) {
+    return (
+      <Container className="py-5">
+        <Alert variant="warning">
+          <Alert.Heading>No chama selected</Alert.Heading>
+          <p>Please select a chama from the home page</p>
+          <Button variant="outline-warning" onClick={() => navigate('/home')}>
+            Back to Home
+          </Button>
+        </Alert>
+      </Container>
+    );
+  }
+
+  // Navigation items
+  const navItems = [
+    { path: `/chama/${id}`, icon: <FiPieChart />, label: 'Dashboard', end: true },
+    { path: `/chama/${id}/members`, icon: <FiMembers />, label: 'Members', badge: chamaStats?.totalMembers },
+    { path: `/chama/${id}/contributions`, icon: <FiDollarSign />, label: 'Contributions' },
+    { path: `/chama/${id}/events`, icon: <FiCalendar />, label: 'Events', 
+      badge: chamaStats?.upcomingEvent && <FiBell size={12} /> },
+    { path: `/chama/${id}/reports`, icon: <FiBarChart2 />, label: 'Reports' },
+    ...(activeChama.isAdmin ? [
+      { divider: true },
+      { path: `/chama/${id}/invitations`, icon: <FiMail />, label: 'Invitations' },
+      { path: `/chama/${id}/settings`, icon: <FiSettings />, label: 'Settings' },
+      { path: `/chama/${id}/permissions`, icon: <FiLock />, label: 'Permissions' }
+    ] : [])
+  ];
 
   return (
     <Container fluid className="px-0">
@@ -118,7 +178,7 @@ const ChamaLayout = () => {
                 </Badge>
               </div>
               <p className="mb-0 mt-2">
-                Created on {activeChama.createdAt?.toDate().toLocaleDateString()}
+                Created on {activeChama.createdAt?.toDate()?.toLocaleDateString() || 'N/A'}
               </p>
             </Col>
             <Col md={4} className="text-md-end mt-3 mt-md-0">
@@ -134,8 +194,9 @@ const ChamaLayout = () => {
               <Button 
                 variant="outline-light" 
                 onClick={refreshChama}
+                disabled={loading}
               >
-                Refresh
+                {loading ? 'Refreshing...' : 'Refresh'}
               </Button>
             </Col>
           </Row>
@@ -147,7 +208,7 @@ const ChamaLayout = () => {
                   <span>Progress: {chamaStats.progress}%</span>
                   <span>
                     Ksh {activeChama.currentBalance?.toLocaleString() || 0} of {' '}
-                    Ksh {activeChama.targetAmount.toLocaleString()}
+                    Ksh {activeChama.targetAmount?.toLocaleString() || 0}
                   </span>
                 </div>
                 <ProgressBar 
@@ -181,101 +242,33 @@ const ChamaLayout = () => {
             <Card className="border-0 shadow-sm">
               <Card.Body className="p-2">
                 <Nav variant="pills" className="flex-column">
-                  <Nav.Item>
-                    <NavLink 
-                      to={`/chama/${id}`} 
-                      end
-                      className={({ isActive }) => 
-                        `nav-link d-flex align-items-center ${isActive ? 'active' : ''}`
-                      }
-                    >
-                      <FiHome className="me-2" /> Dashboard
-                    </NavLink>
-                  </Nav.Item>
-                  <Nav.Item>
-                    <NavLink 
-                      to={`/chama/${id}/members`}
-                      className={({ isActive }) => 
-                        `nav-link d-flex align-items-center ${isActive ? 'active' : ''}`
-                      }
-                    >
-                      <FiMembers className="me-2" /> Members
-                      <Badge bg="primary" pill className="ms-auto">
-                        {chamaStats?.totalMembers}
-                      </Badge>
-                    </NavLink>
-                  </Nav.Item>
-                  <Nav.Item>
-                    <NavLink 
-                      to={`/chama/${id}/contributions`}
-                      className={({ isActive }) => 
-                        `nav-link d-flex align-items-center ${isActive ? 'active' : ''}`
-                      }
-                    >
-                      <FiDollarSign className="me-2" /> Contributions
-                    </NavLink>
-                  </Nav.Item>
-                  <Nav.Item>
-                    <NavLink 
-                      to={`/chama/${id}/events`}
-                      className={({ isActive }) => 
-                        `nav-link d-flex align-items-center ${isActive ? 'active' : ''}`
-                      }
-                    >
-                      <FiCalendar className="me-2" /> Events
-                      {chamaStats?.upcomingEvent && (
-                        <Badge bg="warning" pill className="ms-auto">
-                          <FiBell size={12} />
-                        </Badge>
-                      )}
-                    </NavLink>
-                  </Nav.Item>
-                  <Nav.Item>
-                    <NavLink 
-                      to={`/chama/${id}/reports`}
-                      className={({ isActive }) => 
-                        `nav-link d-flex align-items-center ${isActive ? 'active' : ''}`
-                      }
-                    >
-                      <FiBarChart2 className="me-2" /> Reports
-                    </NavLink>
-                  </Nav.Item>
-                  
-                  {activeChama.isAdmin && (
-                    <>
-                      <div className="border-top my-2"></div>
-                      <Nav.Item>
-                        <NavLink 
-                          to={`/chama/${id}/invitations`}
+                  {navItems.map((item, index) => (
+                    item.divider ? (
+                      <div key={`divider-${index}`} className="border-top my-2"></div>
+                    ) : (
+                      <Nav.Item key={item.path}>
+                        <NavLink
+                          to={item.path}
+                          end={item.end}
                           className={({ isActive }) => 
                             `nav-link d-flex align-items-center ${isActive ? 'active' : ''}`
                           }
                         >
-                          <FiMail className="me-2" /> Invitations
+                          <span className="me-2">{item.icon}</span>
+                          {item.label}
+                          {item.badge && (
+                            <Badge 
+                              bg={typeof item.badge === 'number' ? 'primary' : 'warning'} 
+                              pill 
+                              className="ms-auto"
+                            >
+                              {item.badge}
+                            </Badge>
+                          )}
                         </NavLink>
                       </Nav.Item>
-                      <Nav.Item>
-                        <NavLink 
-                          to={`/chama/${id}/settings`}
-                          className={({ isActive }) => 
-                            `nav-link d-flex align-items-center ${isActive ? 'active' : ''}`
-                          }
-                        >
-                          <FiSettings className="me-2" /> Settings
-                        </NavLink>
-                      </Nav.Item>
-                      <Nav.Item>
-                        <NavLink 
-                          to={`/chama/${id}/permissions`}
-                          className={({ isActive }) => 
-                            `nav-link d-flex align-items-center ${isActive ? 'active' : ''}`
-                          }
-                        >
-                          <FiLock className="me-2" /> Permissions
-                        </NavLink>
-                      </Nav.Item>
-                    </>
-                  )}
+                    )
+                  ))}
                 </Nav>
               </Card.Body>
             </Card>
@@ -308,11 +301,7 @@ const ChamaLayout = () => {
 
           {/* Main Content Area */}
           <Col md={9}>
-            <Outlet context={{ 
-              chama: activeChama, 
-              stats: chamaStats,
-              refresh: refreshChama 
-            }} />
+            <Outlet context={outletContext} />
           </Col>
         </Row>
       </Container>

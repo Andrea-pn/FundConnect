@@ -32,7 +32,7 @@ import { toast } from 'react-toastify';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { chama, stats, refresh } = useOutletContext();
+  const { chama, stats, refresh, loading } = useOutletContext();
   const { activeChama, setActiveChama } = useContext(ChamaContext);
   
   const [showAddModal, setShowAddModal] = useState(false);

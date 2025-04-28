@@ -1,11 +1,8 @@
-import React, { useContext } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import React from 'react';
+import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import { ChamaContext } from '../App'; // Adjust the import path as needed
 
-const MainLayout = ({ darkMode }) => {
-  // Remove the activeChama extraction since it's accessed via context in Sidebar
-  
+const MainLayout = ({ darkMode, setDarkMode }) => {
   return (
     <div className={`app-container ${darkMode ? 'dark' : 'light'}`} style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar darkMode={darkMode} />

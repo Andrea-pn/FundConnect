@@ -1,58 +1,168 @@
-import React, { useEffect, useState } from "react";
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
-import LandingPage from "./components/LandingPage";
-import Login from "./components/Login";
-import SignIn from "./components/SignIn";
-import Dashboard from "./components/AdminDashboard";
-import Members from "./components/Members";
-import Contributions from "./components/Contributions";
-import Events from "./components/Events"; // Import the Events component
-import { auth } from "./components/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import React, { useState, createContext, useEffect, useContext } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams, Outlet } from 'react-router-dom';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth, db } from './firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+import MainLayout from './components/MainLayout';
+import LandingPage from './Pages/LandingPage';
+import Login from './Pages/Login';
+import SignIn from './Pages/SignIn';
+import HomePage from './Pages/HomePage';
+import Dashboard from './Pages/AdminDashboard';
+import Members from './Pages/Members';
+import Contributions from './Pages/Contributions';
+import Events from './Pages/Events';
+import Settings from './Pages/Settings';
+import InvitationsPage from './Pages/Invitations';
+import LoadingScreen from './components/LoadingScreen';
+import ChamaRouteWrapper from './components/ChamaRouteWrapper';
+import ChamaLayout from './components/ChamaLayout'; // Make sure to import ChamaLayout
+
+export const ChamaContext = createContext({
+  activeChama: null,
+  setActiveChama: () => {},
+  chamaLoading: false,
+  refreshChama: () => {},
+  fetchChamaData: () => {}
+});
+
 function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
+  const [activeChama, setActiveChama] = useState(null);
+  const [chamaLoading, setChamaLoading] = useState(false);
+  const [chamaCache, setChamaCache] = useState({});
+  const [user, loading, error] = useAuthState(auth);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-      // Redirect to dashboard if user is logged in and on auth pages
-      if (user && (window.location.pathname === '/login' || window.location.pathname === '/signin')) {
-        navigate('/dashboard');
+    console.log('Current route:', location.pathname);
+  }, [location]);
+
+  const fetchChamaData = async (chamaId) => {
+    if (!chamaId) return;
+    
+    if (chamaCache[chamaId]) {
+      setActiveChama(chamaCache[chamaId]);
+      return;
+    }
+
+    setChamaLoading(true);
+    try {
+      const chamaRef = doc(db, 'chamas', chamaId);
+      const chamaSnap = await getDoc(chamaRef);
+      
+      if (chamaSnap.exists()) {
+        const chamaData = {
+          id: chamaSnap.id,
+          ...chamaSnap.data(),
+          isAdmin: chamaSnap.data().createdBy === user?.uid
+        };
+        setActiveChama(chamaData);
+        setChamaCache(prev => ({ ...prev, [chamaId]: chamaData }));
+      } else {
+        console.error('Chama not found');
+        navigate('/home');
       }
-    });
-    return unsubscribe;
-  }, [navigate]);
+    } catch (err) {
+      console.error('Error fetching chama:', err);
+      navigate('/home');
+    } finally {
+      setChamaLoading(false);
+    }
+  };
+
+  const refreshChama = async () => {
+    if (activeChama?.id) {
+      await fetchChamaData(activeChama.id);
+    }
+  };
+
+  // Handle route changes to fetch chama data
+  useEffect(() => {
+    const pathParts = location.pathname.split('/');
+    if (pathParts[1] === 'chama' && pathParts[2]) {
+      const chamaId = pathParts[2];
+      if (!activeChama || activeChama.id !== chamaId) {
+        fetchChamaData(chamaId);
+      }
+    }
+  }, [location.pathname]);
+
+  // Redirect logged in users away from auth pages
+  useEffect(() => {
+    if (!loading && user) {
+      if (location.pathname === '/login' || location.pathname === '/signin') {
+        navigate('/home');
+      }
+    }
+  }, [loading, user, location.pathname, navigate]);
+
+  const ProtectedRoute = ({ children }) => {
+    if (!user) return <Navigate to="/login" replace />;
+    return children;
+  };
 
   if (loading) {
-    return (
-      <div className="d-flex justify-content-center align-items-center vh-100">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (
-    <>
-      <ToastContainer position="bottom-center" />
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
-        <Route path="/signin" element={user ? <Navigate to="/dashboard" /> : <SignIn />} />
-        <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
-        <Route path="/members" element={user ? <Members /> : <Navigate to="/login" />} />
-        <Route path="/contributions" element={user ? <Contributions /> : <Navigate to="/login" />} />
-        <Route path="/events" element={user ? <Events /> : <Navigate to="/login" />} /> {/* New Events route */}
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </>
+    <ChamaContext.Provider value={{ 
+      activeChama, 
+      setActiveChama, 
+      chamaLoading, 
+      refreshChama,
+      fetchChamaData 
+    }}>
+      <ToastContainer 
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme={darkMode ? 'dark' : 'light'}
+      />
+
+// In App.js - Updated Routes section
+<Routes>
+  {/* Public routes */}
+  <Route path="/" element={<LandingPage />} />
+  <Route path="/login" element={<Login />} />
+  <Route path="/signin" element={<SignIn />} />
+
+  {/* Protected routes */}
+  <Route element={
+    <ProtectedRoute>
+      <MainLayout darkMode={darkMode} setDarkMode={setDarkMode} />
+    </ProtectedRoute>
+  }>
+    <Route path="/home" element={<HomePage />} />
+    
+    {/* Chama routes - Single protection layer */}
+    <Route path="/chama/:id" element={
+      <ChamaRouteWrapper darkMode={darkMode} />
+    }>
+      <Route index element={<Dashboard />} />
+      <Route path="members" element={<Members />} />
+      <Route path="contributions" element={<Contributions />} />
+      <Route path="events" element={<Events />} />
+      <Route path="settings" element={<Settings />} />
+      <Route path="invitations" element={<InvitationsPage />} />
+    </Route>
+  </Route>
+
+  {/* Fallback */}
+  <Route path="*" element={<Navigate to="/" replace />} />
+</Routes>
+    </ChamaContext.Provider>
   );
 }
 
