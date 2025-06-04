@@ -1,33 +1,24 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { 
-  Button, 
-  Table, 
-  Modal, 
-  Form, 
-  Alert, 
-  Badge,
-  Dropdown,
-  Card,
-  Row,
-  Col
+  Button, Table, Modal, Form, Alert, Badge,
+  Dropdown, Card, Row, Col, Spinner, Tooltip, OverlayTrigger
 } from 'react-bootstrap';
 import { 
-  FiPlus, 
-  FiEdit2, 
-  FiTrash2, 
-  FiMoreVertical,
-  FiSun,
-  FiMoon,
-  FiLogOut,
-  FiUser,
-  FiShield,
-  FiUserCheck,
-  FiUserX
+  FiPlus, FiEdit2, FiTrash2, FiMoreVertical,
+  FiSun, FiMoon, FiLogOut, FiUser,
+  FiShield, FiUserCheck, FiClock, FiMail, 
+  FiPhone, FiRefreshCw, FiInfo
 } from 'react-icons/fi';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { ChamaContext } from '../App';
+import { db } from '../firebase';
+import { 
+  collection, addDoc, getDocs, doc, 
+  updateDoc, deleteDoc, query, where 
+} from 'firebase/firestore';
+import { toast } from 'react-toastify';
 
 const Members = () => {
   const navigate = useNavigate();
@@ -41,6 +32,8 @@ const Members = () => {
   const [currentMember, setCurrentMember] = useState(null);
   const [memberToDelete, setMemberToDelete] = useState(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -50,60 +43,80 @@ const Members = () => {
     status: 'active'
   });
 
-  // Sample member data - in a real app, this would come from your API
-  const [members, setMembers] = useState([
-    { 
-      id: '1',
-      name: 'Martin Ndundu',
-      email: 'martin@example.com',
-      phone: '+254722321456',
-      role: 'admin',
-      status: 'active',
-      joinDate: '2023-01-15'
-    },
-    { 
-      id: '2',
-      name: 'Jackson Kamau',
-      email: 'jackson@example.com',
-      phone: '+254721709743',
-      role: 'admin',
-      status: 'active',
-      joinDate: '2023-02-20'
-    },
-    { 
-      id: '3',
-      name: 'Sultan Asman',
-      email: 'asman@example.com',
-      phone: '+254723709777',
-      role: 'admin',
-      status: 'active',
-      joinDate: '2023-03-10'
-    },
-    { 
-      id: '4',
-      name: 'John Doe',
-      email: 'john@example.com',
-      phone: '+254712709755',
-      role: 'member',
-      status: 'active',
-      joinDate: '2023-04-05'
-    },
-    { 
-      id: '5',
-      name: 'Jane Doe',
-      email: 'jane@example.com',
-      phone: '+254712709741',
-      role: 'member',
-      status: 'inactive',
-      joinDate: '2023-05-12'
-    }
-  ]);
+  const [members, setMembers] = useState([]);
+  const [pendingInvitations, setPendingInvitations] = useState([]);
 
   const isAdmin = activeChama?.isAdmin || false;
 
   useEffect(() => {
     document.body.classList.toggle('dark-mode', darkMode);
   }, [darkMode]);
+
+  // Fetch members and invitations from Firestore
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!activeChama?.id) return;
+      
+      try {
+        setLoading(true);
+        
+        // Fetch members
+        const membersRef = collection(db, 'memberships');
+        const membersQuery = query(membersRef, where('chamaId', '==', activeChama.id));
+        const membersSnapshot = await getDocs(membersQuery);
+        
+        const membersData = membersSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          type: 'member'
+        }));
+        
+        // Fetch pending invitations with user details
+        const invitationsRef = collection(db, 'invitations');
+        const invitationsQuery = query(
+          invitationsRef,
+          where('chamaId', '==', activeChama.id),
+          where('status', '==', 'pending')
+        );
+        const invitationsSnapshot = await getDocs(invitationsQuery);
+        
+        // Get user details for each invitation
+        const invitationsData = await Promise.all(
+          invitationsSnapshot.docs.map(async doc => {
+            const inviteData = doc.data();
+            // Fetch user details from users collection
+            const userQuery = query(
+              collection(db, 'users'),
+              where('email', '==', inviteData.invitedUserEmail)
+            );
+            const userSnapshot = await getDocs(userQuery);
+            const userData = userSnapshot.docs[0]?.data() || {};
+            
+            return {
+              id: doc.id,
+              ...inviteData,
+              ...userData, // Merge user details with invitation
+              type: 'invitation'
+            };
+          })
+        );
+        
+        setMembers(membersData);
+        setPendingInvitations(invitationsData);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        toast.error('Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [activeChama, refreshTrigger]);
+
+  const refreshData = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   const handleLogout = async () => {
     try {
@@ -122,7 +135,7 @@ const Members = () => {
     });
   };
 
-  const handleAddMember = () => {
+  const handleAddMember = async () => {
     if (!isAdmin) {
       setError('Only admins can add members');
       return;
@@ -134,23 +147,60 @@ const Members = () => {
       return;
     }
 
-    // Add new member
-    const newMember = {
-      id: `mem-${Date.now()}`,
-      ...formData,
-      joinDate: new Date().toISOString().split('T')[0]
-    };
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
 
-    setMembers([...members, newMember]);
-    setShowAddModal(false);
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      role: 'member',
-      status: 'active'
-    });
-    setError('');
+    // Phone validation
+    const phoneRegex = /^[0-9]{10,15}$/;
+    if (!phoneRegex.test(formData.phone)) {
+      setError('Please enter a valid phone number (10-15 digits)');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Add to Firestore
+      const docRef = await addDoc(collection(db, 'memberships'), {
+        ...formData,
+        chamaId: activeChama.id,
+        chamaName: activeChama.name,
+        joinDate: new Date().toISOString(),
+        createdBy: auth.currentUser.uid,
+        createdAt: new Date().toISOString()
+      });
+
+      // Update local state
+      const newMember = {
+        id: docRef.id,
+        ...formData,
+        joinDate: new Date().toISOString(),
+        type: 'member'
+      };
+
+      setMembers([...members, newMember]);
+      setShowAddModal(false);
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        role: 'member',
+        status: 'active'
+      });
+      setError('');
+      
+      toast.success('Member added successfully!');
+    } catch (error) {
+      console.error('Error adding member:', error);
+      setError('Failed to add member. Please try again.');
+      toast.error('Failed to add member');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEditMember = (member) => {
@@ -167,61 +217,107 @@ const Members = () => {
     setShowEditModal(true);
   };
 
-  const handleUpdateMember = () => {
+  const handleUpdateMember = async () => {
     if (!isAdmin) return;
 
-    const updatedMembers = members.map(member => 
-      member.id === currentMember.id ? { ...member, ...formData } : member
-    );
+    try {
+      setLoading(true);
+      
+      // Update in Firestore
+      await updateDoc(doc(db, 'memberships', currentMember.id), {
+        ...formData,
+        updatedAt: new Date().toISOString(),
+        updatedBy: auth.currentUser.uid
+      });
 
-    setMembers(updatedMembers);
-    setShowEditModal(false);
-    setCurrentMember(null);
+      // Update local state
+      const updatedMembers = members.map(member => 
+        member.id === currentMember.id ? { ...member, ...formData } : member
+      );
+
+      setMembers(updatedMembers);
+      setShowEditModal(false);
+      setCurrentMember(null);
+      
+      toast.success('Member updated successfully!');
+    } catch (error) {
+      console.error('Error updating member:', error);
+      toast.error('Failed to update member');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDeleteMember = () => {
+  const handleDeleteMember = async () => {
     if (!isAdmin) return;
 
-    setMembers(members.filter(member => member.id !== memberToDelete.id));
-    setShowDeleteModal(false);
-    setMemberToDelete(null);
+    try {
+      setLoading(true);
+      
+      // Delete from Firestore
+      await deleteDoc(doc(db, 'memberships', memberToDelete.id));
+
+      // Update local state
+      setMembers(members.filter(member => member.id !== memberToDelete.id));
+      setShowDeleteModal(false);
+      setMemberToDelete(null);
+      
+      toast.success('Member deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting member:', error);
+      toast.error('Failed to delete member');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleStatusChange = (memberId, newStatus) => {
+  const handleStatusChange = async (memberId, newStatus) => {
     if (!isAdmin) return;
 
-    setMembers(members.map(member => 
-      member.id === memberId ? { ...member, status: newStatus } : member
-    ));
+    try {
+      setLoading(true);
+      
+      // Update in Firestore
+      await updateDoc(doc(db, 'memberships', memberId), {
+        status: newStatus,
+        updatedAt: new Date().toISOString(),
+        updatedBy: auth.currentUser.uid
+      });
+
+      // Update local state
+      setMembers(members.map(member => 
+        member.id === memberId ? { ...member, status: newStatus } : member
+      ));
+      
+      toast.success(`Member status updated to ${newStatus}`);
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Failed to update status');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Theme colors
-  const colors = {
-    cardBg: darkMode ? '#1e1e2d' : '#ffffff',
-    cardText: darkMode ? '#e1e1e1' : '#333',
-    tableHeaderBg: darkMode ? '#222233' : '#f8f9fa',
-    tableBorder: darkMode ? '#444' : '#dee2e6',
-    textPrimary: darkMode ? '#e1e1e1' : '#333'
-  };
-
-  // Card styles
-  const statsCardStyle = {
-    borderRadius: '12px',
-    border: 'none',
-    boxShadow: darkMode ? '0 5px 15px rgba(0,0,0,0.2)' : '0 5px 15px rgba(0,0,0,0.08)',
-    height: '100%',
-    transition: 'transform 0.3s ease',
-    overflow: 'hidden',
-    color: colors.cardText,
-    background: darkMode 
-      ? 'linear-gradient(135deg, #182236 0%, #101827 100%)'
-      : 'linear-gradient(135deg, #f0f6ff 0%, #e1ebf5 100%)'
-  };
-
-  // Calculate stats
+  // Calculate stats including pending invitations
   const totalMembers = members.length;
   const activeMembers = members.filter(m => m.status === 'active').length;
   const adminMembers = members.filter(m => m.role === 'admin').length;
+  const pendingCount = pendingInvitations.length;
+
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
+        <Spinner animation="border" variant="primary" />
+      </div>
+    );
+  }
+
+  // Tooltip for refresh button
+  const refreshTooltip = (props) => (
+    <Tooltip id="refresh-tooltip" {...props}>
+      Refresh data
+    </Tooltip>
+  );
 
   return (
     <div className="members-page" style={{ 
@@ -229,12 +325,10 @@ const Members = () => {
       minHeight: '100vh',
       backgroundColor: darkMode ? '#111122' : '#f8f9fa'
     }}>
-      {/* Sidebar would be included from your layout */}
-      
       <div className="main-content" style={{ 
         flex: 1,
         padding: '20px',
-        color: colors.textPrimary
+        color: darkMode ? '#e1e1e1' : '#333'
       }}>
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div>
@@ -245,15 +339,22 @@ const Members = () => {
           </div>
           
           <div className="d-flex gap-2">
+            <OverlayTrigger placement="bottom" overlay={refreshTooltip}>
+              <Button 
+                variant="outline-secondary" 
+                onClick={refreshData}
+                disabled={loading}
+              >
+                <FiRefreshCw className={loading ? "spin" : ""} />
+              </Button>
+            </OverlayTrigger>
             <Button 
               variant={darkMode ? "dark" : "light"} 
               onClick={() => setDarkMode(!darkMode)}
-              className="d-flex align-items-center"
+              title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
-              {darkMode ? <FiMoon className="me-1" /> : <FiSun className="me-1" />}
-              Theme
+              {darkMode ? <FiMoon /> : <FiSun />}
             </Button>
-            
             <Dropdown>
               <Dropdown.Toggle variant={darkMode ? "outline-light" : "outline-secondary"}>
                 <FiMoreVertical />
@@ -269,49 +370,57 @@ const Members = () => {
 
         {/* Stats Cards */}
         <Row className="mb-4 g-3">
-          <Col md={4}>
-            <Card style={statsCardStyle}>
+          <Col md={3}>
+            <Card className="h-100" bg={darkMode ? 'dark' : 'light'}>
               <Card.Body>
                 <div className="d-flex justify-content-between align-items-center">
                   <div>
-                    <h6 className="text-muted mb-2">Total Members</h6>
+                    <Card.Title>Total Members</Card.Title>
                     <h3>{totalMembers}</h3>
                   </div>
-                  <div className="bg-primary bg-opacity-10 p-3 rounded">
-                    <FiUser size={24} className="text-primary" />
-                  </div>
+                  <FiUser size={24} className="text-primary" />
                 </div>
               </Card.Body>
             </Card>
           </Col>
           
-          <Col md={4}>
-            <Card style={statsCardStyle}>
+          <Col md={3}>
+            <Card className="h-100" bg={darkMode ? 'dark' : 'light'}>
               <Card.Body>
                 <div className="d-flex justify-content-between align-items-center">
                   <div>
-                    <h6 className="text-muted mb-2">Active Members</h6>
+                    <Card.Title>Active Members</Card.Title>
                     <h3>{activeMembers}</h3>
                   </div>
-                  <div className="bg-success bg-opacity-10 p-3 rounded">
-                    <FiUserCheck size={24} className="text-success" />
-                  </div>
+                  <FiUserCheck size={24} className="text-success" />
                 </div>
               </Card.Body>
             </Card>
           </Col>
           
-          <Col md={4}>
-            <Card style={statsCardStyle}>
+          <Col md={3}>
+            <Card className="h-100" bg={darkMode ? 'dark' : 'light'}>
               <Card.Body>
                 <div className="d-flex justify-content-between align-items-center">
                   <div>
-                    <h6 className="text-muted mb-2">Admin Members</h6>
+                    <Card.Title>Admin Members</Card.Title>
                     <h3>{adminMembers}</h3>
                   </div>
-                  <div className="bg-warning bg-opacity-10 p-3 rounded">
-                    <FiShield size={24} className="text-warning" />
+                  <FiShield size={24} className="text-warning" />
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+          
+          <Col md={3}>
+            <Card className="h-100" bg={darkMode ? 'dark' : 'light'}>
+              <Card.Body>
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <Card.Title>Pending Invites</Card.Title>
+                    <h3>{pendingCount}</h3>
                   </div>
+                  <FiClock size={24} className="text-info" />
                 </div>
               </Card.Body>
             </Card>
@@ -319,20 +428,12 @@ const Members = () => {
         </Row>
 
         {/* Members Table */}
-        <Card style={{ 
-          border: 'none',
-          boxShadow: darkMode ? '0 5px 15px rgba(0,0,0,0.2)' : '0 5px 15px rgba(0,0,0,0.08)'
-        }}>
+        <Card className="mb-4" bg={darkMode ? 'dark' : 'light'}>
           <Card.Body>
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <h5 className="mb-0">Member List</h5>
-              
+              <Card.Title>Member List</Card.Title>
               {isAdmin && (
-                <Button 
-                  variant="primary" 
-                  onClick={() => setShowAddModal(true)}
-                  className="d-flex align-items-center"
-                >
+                <Button variant="primary" onClick={() => setShowAddModal(true)}>
                   <FiPlus className="me-1" /> Add Member
                 </Button>
               )}
@@ -343,59 +444,54 @@ const Members = () => {
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Role</th>
+                    <th>Contact</th>
                     <th>Status</th>
+                    <th>Type</th>
+                    <th>Role</th>
                     {isAdmin && <th>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
+                  {/* Render members */}
                   {members.map(member => (
-                    <tr key={member.id}>
+                    <tr key={`member-${member.id}`}>
                       <td>
                         <div className="d-flex align-items-center">
-                          <div className="me-2">
-                            {member.role === 'admin' ? (
-                              <FiShield className="text-warning" />
-                            ) : (
-                              <FiUser className="text-primary" />
-                            )}
-                          </div>
+                          {member.role === 'admin' ? (
+                            <FiShield className="text-warning me-2" />
+                          ) : (
+                            <FiUser className="text-primary me-2" />
+                          )}
                           {member.name}
                         </div>
                       </td>
-                      <td>{member.email}</td>
-                      <td>{member.phone}</td>
                       <td>
-                        <Badge bg={member.role === 'admin' ? 'warning' : 'primary'}>
-                          {member.role}
+                        <div className="d-flex flex-column">
+                          <div className="d-flex align-items-center mb-1">
+                            <FiMail className="me-2 text-muted" size={14} />
+                            <small>{member.email}</small>
+                          </div>
+                          <div className="d-flex align-items-center">
+                            <FiPhone className="me-2 text-muted" size={14} />
+                            <small>{member.phone || 'Not provided'}</small>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <Badge 
+                          bg={member.status === 'active' ? 'success' : 'danger'}
+                          className="text-capitalize"
+                        >
+                          {member.status}
                         </Badge>
                       </td>
                       <td>
-                        {isAdmin ? (
-                          <Dropdown>
-                            <Dropdown.Toggle 
-                              variant={member.status === 'active' ? 'success' : 'danger'} 
-                              size="sm"
-                              id={`status-dropdown-${member.id}`}
-                            >
-                              {member.status}
-                            </Dropdown.Toggle>
-                            <Dropdown.Menu>
-                              <Dropdown.Item onClick={() => handleStatusChange(member.id, 'active')}>
-                                Set Active
-                              </Dropdown.Item>
-                              <Dropdown.Item onClick={() => handleStatusChange(member.id, 'inactive')}>
-                                Set Inactive
-                              </Dropdown.Item>
-                            </Dropdown.Menu>
-                          </Dropdown>
-                        ) : (
-                          <Badge bg={member.status === 'active' ? 'success' : 'danger'}>
-                            {member.status}
-                          </Badge>
-                        )}
+                        <Badge bg="info">Member</Badge>
+                      </td>
+                      <td>
+                        <Badge bg={member.role === 'admin' ? 'warning' : 'secondary'}>
+                          {member.role}
+                        </Badge>
                       </td>
                       {isAdmin && (
                         <td>
@@ -404,6 +500,7 @@ const Members = () => {
                               variant="outline-primary" 
                               size="sm" 
                               onClick={() => handleEditMember(member)}
+                              title="Edit member"
                             >
                               <FiEdit2 />
                             </Button>
@@ -414,6 +511,7 @@ const Members = () => {
                                 setMemberToDelete(member);
                                 setShowDeleteModal(true);
                               }}
+                              title="Delete member"
                             >
                               <FiTrash2 />
                             </Button>
@@ -422,6 +520,74 @@ const Members = () => {
                       )}
                     </tr>
                   ))}
+                  
+                  {/* Render pending invitations with user details */}
+                  {pendingInvitations.map(invite => (
+                    <tr key={`invite-${invite.id}`}>
+                      <td>
+                        <div className="d-flex align-items-center">
+                          <FiClock className="text-warning me-2" />
+                          {invite.displayName || invite.invitedUserEmail.split('@')[0]}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="d-flex flex-column">
+                          <div className="d-flex align-items-center mb-1">
+                            <FiMail className="me-2 text-muted" size={14} />
+                            <small>{invite.invitedUserEmail}</small>
+                          </div>
+                          <div className="d-flex align-items-center">
+                            <FiPhone className="me-2 text-muted" size={14} />
+                            <small>{invite.phoneNumber || 'Not provided'}</small>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <Badge bg="warning" className="text-capitalize">
+                          Pending
+                        </Badge>
+                      </td>
+                      <td>
+                        <Badge bg="secondary">Invitation</Badge>
+                      </td>
+                      <td>
+                        <Badge bg="light" text="dark">
+                          N/A
+                        </Badge>
+                      </td>
+                      {isAdmin && (
+                        <td>
+                          <OverlayTrigger
+                            overlay={
+                              <Tooltip id={`tooltip-${invite.id}`}>
+                                Invitation pending acceptance
+                              </Tooltip>
+                            }
+                          >
+                            <span>
+                              <Button 
+                                variant="outline-secondary" 
+                                size="sm"
+                                disabled
+                              >
+                                <FiInfo />
+                              </Button>
+                            </span>
+                          </OverlayTrigger>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                  
+                  {members.length === 0 && pendingInvitations.length === 0 && (
+                    <tr>
+                      <td colSpan={isAdmin ? 6 : 5} className="text-center py-4">
+                        <div className="text-muted">
+                          No members or pending invitations found
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </Table>
             </div>
@@ -429,15 +595,15 @@ const Members = () => {
         </Card>
 
         {/* Add Member Modal */}
-        <Modal show={showAddModal} onHide={() => setShowAddModal(false)}>
-          <Modal.Header closeButton>
+        <Modal show={showAddModal} onHide={() => setShowAddModal(false)} centered>
+          <Modal.Header closeButton className={darkMode ? "bg-dark text-light" : ""}>
             <Modal.Title>Add New Member</Modal.Title>
           </Modal.Header>
-          <Modal.Body>
+          <Modal.Body className={darkMode ? "bg-dark text-light" : ""}>
             {error && <Alert variant="danger">{error}</Alert>}
             <Form>
               <Form.Group className="mb-3">
-                <Form.Label>Name</Form.Label>
+                <Form.Label>Full Name</Form.Label>
                 <Form.Control
                   type="text"
                   name="name"
@@ -445,11 +611,12 @@ const Members = () => {
                   onChange={handleInputChange}
                   placeholder="Enter full name"
                   required
+                  className={darkMode ? "bg-secondary text-light" : ""}
                 />
               </Form.Group>
               
               <Form.Group className="mb-3">
-                <Form.Label>Email</Form.Label>
+                <Form.Label>Email Address</Form.Label>
                 <Form.Control
                   type="email"
                   name="email"
@@ -457,19 +624,24 @@ const Members = () => {
                   onChange={handleInputChange}
                   placeholder="Enter email"
                   required
+                  className={darkMode ? "bg-secondary text-light" : ""}
                 />
               </Form.Group>
               
               <Form.Group className="mb-3">
-                <Form.Label>Phone</Form.Label>
+                <Form.Label>Phone Number</Form.Label>
                 <Form.Control
-                  type="text"
+                  type="tel"
                   name="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
                   placeholder="Enter phone number"
                   required
+                  className={darkMode ? "bg-secondary text-light" : ""}
                 />
+                <Form.Text className="text-muted">
+                  Format: 0712345678 (10-15 digits)
+                </Form.Text>
               </Form.Group>
               
               <Form.Group className="mb-3">
@@ -478,6 +650,7 @@ const Members = () => {
                   name="role"
                   value={formData.role}
                   onChange={handleInputChange}
+                  className={darkMode ? "bg-secondary text-light" : ""}
                 >
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>
@@ -485,53 +658,56 @@ const Members = () => {
               </Form.Group>
             </Form>
           </Modal.Body>
-          <Modal.Footer>
+          <Modal.Footer className={darkMode ? "bg-dark text-light" : ""}>
             <Button variant="secondary" onClick={() => setShowAddModal(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleAddMember}>
-              Add Member
+            <Button variant="primary" onClick={handleAddMember} disabled={loading}>
+              {loading ? 'Adding...' : 'Add Member'}
             </Button>
           </Modal.Footer>
         </Modal>
 
         {/* Edit Member Modal */}
-        <Modal show={showEditModal} onHide={() => setShowEditModal(false)}>
-          <Modal.Header closeButton>
+        <Modal show={showEditModal} onHide={() => setShowEditModal(false)} centered>
+          <Modal.Header closeButton className={darkMode ? "bg-dark text-light" : ""}>
             <Modal.Title>Edit Member</Modal.Title>
           </Modal.Header>
-          <Modal.Body>
+          <Modal.Body className={darkMode ? "bg-dark text-light" : ""}>
             <Form>
               <Form.Group className="mb-3">
-                <Form.Label>Name</Form.Label>
+                <Form.Label>Full Name</Form.Label>
                 <Form.Control
                   type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
                   required
+                  className={darkMode ? "bg-secondary text-light" : ""}
                 />
               </Form.Group>
               
               <Form.Group className="mb-3">
-                <Form.Label>Email</Form.Label>
+                <Form.Label>Email Address</Form.Label>
                 <Form.Control
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
                   required
+                  className={darkMode ? "bg-secondary text-light" : ""}
                 />
               </Form.Group>
               
               <Form.Group className="mb-3">
-                <Form.Label>Phone</Form.Label>
+                <Form.Label>Phone Number</Form.Label>
                 <Form.Control
-                  type="text"
+                  type="tel"
                   name="phone"
                   value={formData.phone}
                   onChange={handleInputChange}
                   required
+                  className={darkMode ? "bg-secondary text-light" : ""}
                 />
               </Form.Group>
               
@@ -541,6 +717,7 @@ const Members = () => {
                   name="role"
                   value={formData.role}
                   onChange={handleInputChange}
+                  className={darkMode ? "bg-secondary text-light" : ""}
                 >
                   <option value="member">Member</option>
                   <option value="admin">Admin</option>
@@ -553,6 +730,7 @@ const Members = () => {
                   name="status"
                   value={formData.status}
                   onChange={handleInputChange}
+                  className={darkMode ? "bg-secondary text-light" : ""}
                 >
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
@@ -560,22 +738,22 @@ const Members = () => {
               </Form.Group>
             </Form>
           </Modal.Body>
-          <Modal.Footer>
+          <Modal.Footer className={darkMode ? "bg-dark text-light" : ""}>
             <Button variant="secondary" onClick={() => setShowEditModal(false)}>
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleUpdateMember}>
-              Save Changes
+            <Button variant="primary" onClick={handleUpdateMember} disabled={loading}>
+              {loading ? 'Saving...' : 'Save Changes'}
             </Button>
           </Modal.Footer>
         </Modal>
 
         {/* Delete Confirmation Modal */}
         <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
-          <Modal.Header closeButton>
+          <Modal.Header closeButton className={darkMode ? "bg-dark text-light" : ""}>
             <Modal.Title>Confirm Delete</Modal.Title>
           </Modal.Header>
-          <Modal.Body>
+          <Modal.Body className={darkMode ? "bg-dark text-light" : ""}>
             {memberToDelete && (
               <>
                 <p>Are you sure you want to delete <strong>{memberToDelete.name}</strong>?</p>
@@ -583,12 +761,12 @@ const Members = () => {
               </>
             )}
           </Modal.Body>
-          <Modal.Footer>
+          <Modal.Footer className={darkMode ? "bg-dark text-light" : ""}>
             <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
               Cancel
             </Button>
-            <Button variant="danger" onClick={handleDeleteMember}>
-              Delete
+            <Button variant="danger" onClick={handleDeleteMember} disabled={loading}>
+              {loading ? 'Deleting...' : 'Delete'}
             </Button>
           </Modal.Footer>
         </Modal>
