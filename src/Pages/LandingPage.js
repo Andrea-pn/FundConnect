@@ -30,12 +30,12 @@ const teamMembers = [
     },
     {
       name: "Sheilla Achieng'",
-      image: "/jImages/profile_placeholder.webp",
+      image: "/jImages/sheillaProfile.jpg",
       description: "Back-end Programmer"
     },
     {
       name: "Dr. Lawrence Nderu",
-      image: "/jImages/profile_placeholder.webp",
+      image: "/jImages/lawrenceProfile.jpg",
       description: "Project Investigator"
     }
   ];
