@@ -163,71 +163,174 @@ const HomePage = () => {
     }
   };
 
-  // Handle inviting members to chama
-  const handleInviteMember = async (e) => {
-    e.preventDefault();
-    setIsInviting(true);
+const handleInviteMember = async (e) => {
+  e.preventDefault();
+  setIsInviting(true);
+
+  try {
+    // ===== VALIDATION SECTION =====
+    console.log("=== Starting invitation process ===");
     
-    try {
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', inviteEmail));
-      const querySnapshot = await getDocs(q);
-      
-      if (querySnapshot.empty) {
-        toast.error("User with this email not found");
-        return;
-      }
-      
-      const userToInvite = querySnapshot.docs[0].data();
-      
-      const membershipsRef = collection(db, 'memberships');
-      const membershipQuery = query(
-        membershipsRef,
-        where('chamaId', '==', currentChama.id),
-        where('userId', '==', userToInvite.uid)
-      );
-      const membershipSnapshot = await getDocs(membershipQuery);
-      
-      if (!membershipSnapshot.empty) {
-        toast.warning("User is already a member of this chama");
-        return;
-      }
-      
-      const invitationsRef = collection(db, 'invitations');
-      const invitationQuery = query(
-        invitationsRef,
-        where('chamaId', '==', currentChama.id),
-        where('invitedUserId', '==', userToInvite.uid),
-        where('status', '==', 'pending')
-      );
-      const invitationSnapshot = await getDocs(invitationQuery);
-      
-      if (!invitationSnapshot.empty) {
-        toast.info("Invitation already sent to this user");
-        return;
-      }
-      
-      await addDoc(collection(db, 'invitations'), {
-        chamaId: currentChama.id,
-        chamaName: currentChama.name,
-        invitedUserId: userToInvite.uid,
-        invitedUserEmail: inviteEmail,
-        inviterUserId: user.uid,
-        inviterEmail: user.email,
-        status: 'pending',
-        createdAt: serverTimestamp()
-      });
-      
-      toast.success(`Invitation sent to ${inviteEmail}`);
-      setInviteEmail('');
-      setShowInviteModal(false);
-    } catch (error) {
-      console.error("Error sending invitation:", error);
-      toast.error("Failed to send invitation. Please try again.");
-    } finally {
-      setIsInviting(false);
+    // Validate user is logged in
+    if (!user || !user.uid) {
+      toast.error("You must be logged in to send invitations");
+      return;
     }
-  };
+
+    // Validate chama is selected
+    if (!currentChama || !currentChama.id) {
+      toast.error("No chama selected");
+      return;
+    }
+
+    // Validate email is provided
+    if (!inviteEmail || !inviteEmail.trim()) {
+      toast.error("Please enter an email address");
+      return;
+    }
+
+    // ===== VERIFY ADMIN STATUS =====
+    const userMembershipsQuery = query(
+      collection(db, 'memberships'),
+      where('userId', '==', user.uid),
+      where('chamaId', '==', currentChama.id)
+    );
+    const userMembershipSnapshot = await getDocs(userMembershipsQuery);
+    
+    if (userMembershipSnapshot.empty) {
+      toast.error("You are not a member of this chama");
+      return;
+    }
+    
+    const userMembership = userMembershipSnapshot.docs[0].data();
+    
+    if (userMembership.role !== 'admin') {
+      toast.error("You must be an admin to invite members");
+      return;
+    }
+
+    // ===== FIND USER TO INVITE =====
+    const usersRef = collection(db, 'users');
+    const userQuery = query(usersRef, where('email', '==', inviteEmail.trim()));
+    const userQuerySnapshot = await getDocs(userQuery);
+  
+    if (userQuerySnapshot.empty) {
+      toast.error("User with this email not found");
+      return;
+    }
+  
+    const userToInvite = userQuerySnapshot.docs[0].data();
+    console.log("Found user to invite:", userToInvite);
+
+    // ===== CHECK FOR EXISTING MEMBERSHIP =====
+    const membershipsRef = collection(db, 'memberships');
+    const membershipQuery = query(
+      membershipsRef,
+      where('chamaId', '==', currentChama.id),
+      where('userId', '==', userToInvite.uid)
+    );
+    const membershipSnapshot = await getDocs(membershipQuery);
+  
+    if (!membershipSnapshot.empty) {
+      toast.warning("User is already a member of this chama");
+      return;
+    }
+
+    // ===== CHECK FOR PENDING INVITATIONS =====
+    const invitationsRef = collection(db, 'invitations');
+    const invitationQuery = query(
+      invitationsRef,
+      where('chamaId', '==', currentChama.id),
+      where('invitedUserId', '==', userToInvite.uid),
+      where('status', '==', 'pending')
+    );
+    const invitationSnapshot = await getDocs(invitationQuery);
+  
+    if (!invitationSnapshot.empty) {
+      toast.info("Invitation already sent to this user");
+      return;
+    }
+
+    // ===== CREATE MEMBERSHIP RECORD =====
+    const membershipData = {
+      userId: userToInvite.uid,
+      chamaId: currentChama.id,
+      chamaName: currentChama.name,
+      name: userToInvite.displayName || inviteEmail.split('@')[0],
+      email: inviteEmail.trim(),
+      phone: userToInvite.phoneNumber || '',
+      role: 'member',
+      status: 'pending',
+      joinDate: serverTimestamp(),
+      createdAt: serverTimestamp(),
+      createdBy: user.uid,
+      updatedAt: serverTimestamp()
+    };
+
+    console.log("Creating membership with data:", membershipData);
+    const membershipRef = await addDoc(collection(db, 'memberships'), membershipData);
+    console.log("Membership created with ID:", membershipRef.id);
+
+    // ===== CREATE INVITATION RECORD =====
+    const invitationData = {
+      chamaId: currentChama.id,
+      chamaName: currentChama.name,
+      invitedUserId: userToInvite.uid,
+      invitedUserEmail: inviteEmail.trim(),
+      inviterUserId: user.uid,
+      inviterEmail: user.email,
+      membershipId: membershipRef.id, // Link to membership
+      status: 'pending',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      inviterName: user.displayName || user.email || 'Admin'
+    };
+
+    console.log("Creating invitation with data:", invitationData);
+    const inviteDocRef = await addDoc(collection(db, 'invitations'), invitationData);
+    console.log("Invitation created with ID:", inviteDocRef.id);
+
+    // ===== SUCCESS HANDLING =====
+    toast.success(`Successfully invited ${inviteEmail} to ${currentChama.name}`);
+    setInviteEmail('');
+    setShowInviteModal(false);
+
+    // Return success with new member data
+    return {
+      success: true,
+      newMember: {
+        id: membershipRef.id,
+        ...membershipData,
+        joinDate: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    };
+
+  } catch (error) {
+    console.error("❌ Error in invitation process:", {
+      error: error,
+      code: error.code,
+      message: error.message,
+      stack: error.stack
+    });
+
+    // Specific error handling
+    if (error.code === 'permission-denied') {
+      toast.error("You don't have permission to invite members");
+    } else if (error.code === 'invalid-argument') {
+      toast.error("Invalid data. Please check all fields.");
+    } else if (error.message.includes('network')) {
+      toast.error("Network error. Please check your connection.");
+    } else {
+      toast.error("Failed to send invitation. Please try again.");
+    }
+
+    return { success: false, error };
+  } finally {
+    setIsInviting(false);
+  }
+};
 
   const handleChamaChange = (e) => {
     const { name, value } = e.target;
@@ -235,73 +338,102 @@ const HomePage = () => {
   };
 
   const handleCreateChama = async (e) => {
-    e.preventDefault();
-    setIsCreating(true);
-    setError(null);
-    
-    if (!user) {
-      setError("User not authenticated");
-      setIsCreating(false);
-      return;
-    }
+  e.preventDefault();
+  setIsCreating(true);
+  setError(null);
   
+  if (!user) {
+    setError("User not authenticated");
+    setIsCreating(false);
+    return;
+  }
+
+  try {
+    // Create the chama first
+    const chamaRef = await addDoc(collection(db, 'chamas'), {
+      name: chamaData.name,
+      targetAmount: Number(chamaData.targetAmount),
+      memberCount: Number(chamaData.memberCount),
+      period: chamaData.period,
+      createdAt: serverTimestamp(),
+      createdBy: user.uid,
+      currentBalance: 0,
+      currency: "KES",
+      status: "active"
+    });
+
+    console.log("Chama created with ID:", chamaRef.id);
+
+    // Get user details from auth or fetch from users collection
+    let userName = user.displayName || user.email?.split('@')[0] || 'Admin';
+    let userPhone = user.phoneNumber || '';
+
+    // Optional: Fetch additional user details from users collection if needed
     try {
-      // Create the chama first
-      const chamaRef = await addDoc(collection(db, 'chamas'), {
-        name: chamaData.name,
-        targetAmount: Number(chamaData.targetAmount),
-        memberCount: Number(chamaData.memberCount),
-        period: chamaData.period,
-        createdAt: serverTimestamp(),
-        createdBy: user.uid,
-        currentBalance: 0,
-        currency: "KES",
-        status: "active"
-      });
-  
-      console.log("Chama created with ID:", chamaRef.id);
-  
-      // Then create the membership
-      const membershipRef = await addDoc(collection(db, 'memberships'), {
-        userId: user.uid,
-        chamaId: chamaRef.id,
-        role: 'admin',
-        joinedAt: serverTimestamp(),
-        status: 'active'
-      });
-  
-      console.log("Membership created with ID:", membershipRef.id);
-  
-      const newChama = {
-        id: chamaRef.id,
-        ...chamaData,
-        isAdmin: true,
-        createdAt: new Date(),
-        currentBalance: 0
-      };
-      
-      setUserChamas(prev => [...prev, newChama]);
-      setAdminChamas(prev => [...prev, newChama]);
-      setActiveChama(newChama);
-      setChamaData({
-        name: '',
-        targetAmount: '',
-        memberCount: '',
-        period: 'monthly'
-      });
-      setShowCreateModal(false);
-      toast.success(`Chama "${chamaData.name}" created successfully!`);
-      
-      // Navigate to the new chama's dashboard
-      navigate(`/chama/${chamaRef.id}`);
-    } catch (err) {
-      console.error("Error creating chama:", err);
-      setError("Failed to create chama. Please try again.");
-      toast.error(`Failed to create chama: ${err.message}`);
-    } finally {
-      setIsCreating(false);
+      const userQuery = query(
+        collection(db, 'users'),
+        where('email', '==', user.email)
+      );
+      const userSnapshot = await getDocs(userQuery);
+      if (!userSnapshot.empty) {
+        const userData = userSnapshot.docs[0].data();
+        userName = userData.displayName || userData.name || userName;
+        userPhone = userData.phoneNumber || userData.phone || userPhone;
+      }
+    } catch (userFetchError) {
+      console.log("Could not fetch additional user details:", userFetchError);
+      // Continue with auth user data
     }
-  };
+
+    // Create the membership with all required fields
+    const membershipRef = await addDoc(collection(db, 'memberships'), {
+      userId: user.uid,
+      chamaId: chamaRef.id,
+      chamaName: chamaData.name, // Add chama name
+      name: userName, // Add user's display name
+      email: user.email, // Add user's email
+      phone: userPhone, // Add user's phone
+      role: 'admin',
+      status: 'active',
+      joinDate: new Date().toISOString(), // Use consistent date format
+      joinedAt: serverTimestamp(), // Keep your original field too
+      createdBy: user.uid,
+      createdAt: new Date().toISOString(),
+      isCreator: true // Flag to identify the chama creator
+    });
+
+    console.log("Membership created with ID:", membershipRef.id);
+
+    const newChama = {
+      id: chamaRef.id,
+      ...chamaData,
+      isAdmin: true,
+      createdAt: new Date(),
+      currentBalance: 0
+    };
+    
+    setUserChamas(prev => [...prev, newChama]);
+    setAdminChamas(prev => [...prev, newChama]);
+    setActiveChama(newChama);
+    setChamaData({
+      name: '',
+      targetAmount: '',
+      memberCount: '',
+      period: 'monthly'
+    });
+    setShowCreateModal(false);
+    toast.success(`Chama "${chamaData.name}" created successfully!`);
+    
+    // Navigate to the new chama's dashboard
+    navigate(`/chama/${chamaRef.id}`);
+  } catch (err) {
+    console.error("Error creating chama:", err);
+    setError("Failed to create chama. Please try again.");
+    toast.error(`Failed to create chama: ${err.message}`);
+  } finally {
+    setIsCreating(false);
+  }
+};
 
   const renderChamaCard = (chama) => (
     <Col key={chama.id} xs={12} md={6} lg={4} className="mb-4">
@@ -371,6 +503,7 @@ const HomePage = () => {
             variant={activeChama?.id === chama.id ? 'primary' : 'outline-primary'}
             size="sm"
             className="w-100 mt-3"
+            style={{margin:"3px", backgroundColor:"#198754"}}
             onClick={(e) => {
               e.stopPropagation();
               navigateToChama(chama.id);

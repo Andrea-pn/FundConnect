@@ -130,7 +130,7 @@ function App() {
         theme={darkMode ? 'dark' : 'light'}
       />
 
-// In App.js - Updated Routes section
+
 <Routes>
   {/* Public routes */}
   <Route path="/" element={<LandingPage />} />
