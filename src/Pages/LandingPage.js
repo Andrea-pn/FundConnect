@@ -30,7 +30,7 @@ const teamMembers = [
     },
     {
       name: "Sheilla Achieng'",
-      image: "/jImages/sheila.JPG",
+      image: "/jImages/she.JPG",
       description: "Back-end Programmer"
     },
     {
