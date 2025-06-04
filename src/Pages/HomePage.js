@@ -371,6 +371,7 @@ const HomePage = () => {
             variant={activeChama?.id === chama.id ? 'primary' : 'outline-primary'}
             size="sm"
             className="w-100 mt-3"
+            style={{margin:"3px", backgroundColor:"#198754"}}
             onClick={(e) => {
               e.stopPropagation();
               navigateToChama(chama.id);
