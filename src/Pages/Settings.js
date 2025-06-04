@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Tabs, Tab, Card, Form, Button, Row, Col, Spinner,
   Container, Image, InputGroup, FormControl, Alert, Badge, Table
@@ -30,6 +30,32 @@ const Settings = () => {
     expiry: '12/25'
   });
 
+  const [avatarPreview, setAvatarPreview] = useState(currentUser.avatar);
+  const photoInputRef = useRef(null);
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const [notifications, setNotifications] = useState({
+    contributionReminders: true,
+    meetingReminders: true,
+  });
+
+  const handleToggle = (field) => {
+    setNotifications((prev) => ({
+      ...prev,
+      [field]: !prev[field],
+    }));
+  };
+
   const handleProfileChange = (e) => {
     const { name, value } = e.target;
     setProfileForm(prev => ({ ...prev, [name]: value }));
@@ -47,7 +73,7 @@ const Settings = () => {
   return (
     <Container fluid>
       <h2 className="mb-4">Settings</h2>
-      
+
       <Card>
         <Card.Body>
           <Tabs
@@ -59,20 +85,30 @@ const Settings = () => {
             <Tab eventKey="profile" title={
               <span><FiUser className="me-2" />Profile</span>
             }>
-              {/* Profile tab content remains the same */}
               <div className="mt-4">
                 <div className="text-center mb-4">
-                  <Image 
-                    src={currentUser.avatar} 
-                    roundedCircle 
+                  <Image
+                    src={avatarPreview}
+                    roundedCircle
                     width={120}
                     height={120}
                     className="border"
                   />
                   <div className="mt-3">
-                    <Button variant="outline-primary" size="sm">
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={() => photoInputRef.current.click()}
+                    >
                       Change Photo
                     </Button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={photoInputRef}
+                      onChange={handlePhotoChange}
+                      style={{ display: 'none' }}
+                    />
                   </div>
                   <div className="mt-2">
                     <Badge bg="info" pill>
@@ -149,9 +185,9 @@ const Settings = () => {
                   </Alert>
 
                   <div className="text-end mt-4">
-                    <Button 
-                      variant="primary" 
-                      type="submit" 
+                    <Button
+                      variant="primary"
+                      type="submit"
                       disabled={isSaving}
                     >
                       {isSaving ? (
@@ -169,7 +205,6 @@ const Settings = () => {
             <Tab eventKey="notifications" title={
               <span><FiBell className="me-2" />Notifications</span>
             }>
-              {/* Notifications tab content remains the same */}
               <div className="mt-4">
                 <h4><FiBell className="me-2" />Notification Settings</h4>
                 <Form>
@@ -177,14 +212,16 @@ const Settings = () => {
                     <Form.Check
                       type="switch"
                       label="Contribution Reminders"
-                      checked={true}
+                      checked={notifications.contributionReminders}
+                      onChange={() => handleToggle('contributionReminders')}
                     />
                   </Form.Group>
                   <Form.Group className="mb-3">
                     <Form.Check
                       type="switch"
                       label="Meeting Reminders"
-                      checked={true}
+                      checked={notifications.meetingReminders}
+                      onChange={() => handleToggle('meetingReminders')}
                     />
                   </Form.Group>
                   <div className="text-end mt-4">
@@ -194,13 +231,12 @@ const Settings = () => {
               </div>
             </Tab>
 
-            {/* New Billings Tab */}
             <Tab eventKey="billings" title={
               <span><FiCreditCard className="me-2" />Billings</span>
             }>
               <div className="mt-4">
                 <h4><FiDollarSign className="me-2" />Billing Information</h4>
-                
+
                 <Card className="mb-4">
                   <Card.Body>
                     <h5>Payment Method</h5>
@@ -279,4 +315,4 @@ const Settings = () => {
   );
 };
 
-export default Settings;  
+export default Settings;
