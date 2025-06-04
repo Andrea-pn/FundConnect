@@ -1,5 +1,5 @@
-import React, { useState, createContext, useEffect, useContext } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation, useParams, Outlet } from 'react-router-dom';
+import React, { useState, createContext, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from './firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -19,7 +19,6 @@ import Settings from './Pages/Settings';
 import InvitationsPage from './Pages/Invitations';
 import LoadingScreen from './components/LoadingScreen';
 import ChamaRouteWrapper from './components/ChamaRouteWrapper';
-import ChamaLayout from './components/ChamaLayout'; // Make sure to import ChamaLayout
 
 export const ChamaContext = createContext({
   activeChama: null,
@@ -34,7 +33,7 @@ function App() {
   const [activeChama, setActiveChama] = useState(null);
   const [chamaLoading, setChamaLoading] = useState(false);
   const [chamaCache, setChamaCache] = useState({});
-  const [user, loading, error] = useAuthState(auth);
+  const [user, loading] = useAuthState(auth);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -83,14 +82,14 @@ function App() {
 
   // Handle route changes to fetch chama data
   useEffect(() => {
-    const pathParts = location.pathname.split('/');
-    if (pathParts[1] === 'chama' && pathParts[2]) {
-      const chamaId = pathParts[2];
-      if (!activeChama || activeChama.id !== chamaId) {
-        fetchChamaData(chamaId);
-      }
+  const pathParts = location.pathname.split('/');
+  if (pathParts[1] === 'chama' && pathParts[2]) {
+    const chamaId = pathParts[2];
+    if (!activeChama || activeChama.id !== chamaId) {
+      fetchChamaData(chamaId);
     }
-  }, [location.pathname]);
+  }
+ }, [location.pathname, activeChama, fetchChamaData]);
 
   // Redirect logged in users away from auth pages
   useEffect(() => {
