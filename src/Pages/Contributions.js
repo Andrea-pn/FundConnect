@@ -18,6 +18,7 @@ import { getAuth } from 'firebase/auth';
 import { toast } from 'react-toastify';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import { initiateC2BPayment, verifyPayment } from '../services/mpesa';
 
 const Contributions = () => {
   const navigate = useNavigate();
@@ -39,6 +40,9 @@ const Contributions = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [mpesaPhone, setMpesaPhone] = useState('');
+  const [paymentInProgress, setPaymentInProgress] = useState(false);
+  const [checkoutRequestId, setCheckoutRequestId] = useState(null);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -518,6 +522,90 @@ const handleStatusChange = async (id, newStatus) => {
   }
   };
 
+  // Add this function to handle M-Pesa payment
+  const handleMpesaPayment = async () => {
+    if (!mpesaPhone || !formData.amount) {
+      setError('Please enter phone number and amount');
+      return;
+    }
+
+    try {
+      setPaymentInProgress(true);
+      setError('');
+
+      // Format phone number to M-Pesa format (254XXXXXXXXX)
+      const formattedPhone = mpesaPhone.startsWith('0') 
+        ? `254${mpesaPhone.slice(1)}` 
+        : mpesaPhone.startsWith('+') 
+          ? mpesaPhone.slice(1) 
+          : mpesaPhone;
+
+      // Generate a unique reference
+      const reference = `CHAMA-${activeChama.id}-${Date.now()}`;
+
+      // Initiate M-Pesa payment
+      const response = await initiateC2BPayment(
+        formattedPhone,
+        formData.amount,
+        reference
+      );
+
+      if (response.ResponseCode === '0') {
+        setCheckoutRequestId(response.CheckoutRequestID);
+        setFormData(prev => ({
+          ...prev,
+          reference: reference
+        }));
+        toast.success('M-Pesa payment initiated. Please check your phone for the prompt.');
+      } else {
+        throw new Error(response.ResponseDescription || 'Failed to initiate payment');
+      }
+    } catch (error) {
+      console.error('M-Pesa payment error:', error);
+      setError(error.message || 'Failed to process M-Pesa payment');
+      toast.error('Payment failed. Please try again.');
+    } finally {
+      setPaymentInProgress(false);
+    }
+  };
+
+  // Add this function to check payment status
+  const checkPaymentStatus = async () => {
+    if (!checkoutRequestId) return;
+
+    try {
+      const response = await verifyPayment(checkoutRequestId);
+      
+      if (response.ResultCode === '0') {
+        // Payment successful
+        await handleAddContribution();
+        setCheckoutRequestId(null);
+        toast.success('Payment confirmed! Contribution recorded.');
+      } else if (response.ResultCode === '1032') {
+        // Payment cancelled
+        toast.error('Payment was cancelled. Please try again.');
+        setCheckoutRequestId(null);
+      } else {
+        // Payment pending or failed
+        toast.info('Payment is being processed. Please wait...');
+      }
+    } catch (error) {
+      console.error('Payment verification error:', error);
+      toast.error('Failed to verify payment status');
+    }
+  };
+
+  // Add payment status check interval
+  useEffect(() => {
+    let interval;
+    if (checkoutRequestId) {
+      interval = setInterval(checkPaymentStatus, 5000); // Check every 5 seconds
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [checkoutRequestId]);
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ height: '50vh' }}>
@@ -855,6 +943,29 @@ const handleStatusChange = async (id, newStatus) => {
               </Form.Group>
             </Col>
             
+            {formData.paymentMethod === 'M-Pesa' && (
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>M-Pesa Phone Number *</Form.Label>
+                  <InputGroup>
+                    <InputGroup.Text>+254</InputGroup.Text>
+                    <Form.Control
+                      type="tel"
+                      value={mpesaPhone}
+                      onChange={(e) => setMpesaPhone(e.target.value)}
+                      placeholder="7XXXXXXXX"
+                      required
+                    />
+                  </InputGroup>
+                  <Form.Text className="text-muted">
+                    Enter the phone number registered with M-Pesa
+                  </Form.Text>
+                </Form.Group>
+              </Col>
+            )}
+          </Row>
+          
+          <Row>
             <Col md={6}>
               <Form.Group className="mb-3">
                 <Form.Label>Reference Number *</Form.Label>
@@ -885,9 +996,26 @@ const handleStatusChange = async (id, newStatus) => {
           <Button variant="secondary" onClick={() => setShowAddModal(false)}>
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleAddContribution}>
-            Record Contribution
-          </Button>
+          {formData.paymentMethod === 'M-Pesa' ? (
+            <Button 
+              variant="primary" 
+              onClick={handleMpesaPayment}
+              disabled={paymentInProgress}
+            >
+              {paymentInProgress ? (
+                <>
+                  <Spinner as="span" animation="border" size="sm" className="me-2" />
+                  Processing...
+                </>
+              ) : (
+                'Pay with M-Pesa'
+              )}
+            </Button>
+          ) : (
+            <Button variant="primary" onClick={handleAddContribution}>
+              Record Contribution
+            </Button>
+          )}
         </Modal.Footer>
       </Modal>
 
