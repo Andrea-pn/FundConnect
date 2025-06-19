@@ -12,10 +12,8 @@ import {
   Badge,
   Dropdown
 } from "react-bootstrap";
-import { 
-  FiPlus, 
+import {  
   FiEdit2, 
-  FiTrash2, 
   FiMoreVertical,
   FiSun,
   FiMoon,
@@ -23,19 +21,26 @@ import {
   FiDollarSign,
   FiUser,
   FiCalendar,
+  FiTarget,
+  FiPercent,
   FiSettings
 } from "react-icons/fi";
 import { auth } from '../firebase'; 
 import { signOut } from "firebase/auth";
 import { ChamaContext } from '../App';
 import { toast } from 'react-toastify';
+import { Pie } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import ListGroup from 'react-bootstrap/ListGroup';
+import { FiSearch } from "react-icons/fi";
+
+// Register ChartJS components
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { chama, stats, refresh, loading } = useOutletContext();
   const { activeChama, setActiveChama } = useContext(ChamaContext);
-  
-  const [showAddModal, setShowAddModal] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [transactions, setTransactions] = useState([
     { 
@@ -71,21 +76,7 @@ const AdminDashboard = () => {
       mpesaReference: 'N/A', 
       status: 'completed' 
     }
-  ]);
-  
-  const [newTransaction, setNewTransaction] = useState({
-    date: '',
-    event: '',
-    member: '',
-    amount: 0,
-    paymentMethod: 'Mpesa',
-    transactionId: '',
-    mpesaReference: 'N/A',
-    status: 'pending'
-  });
-  
-  const [error, setError] = useState('');
-  const [editingId, setEditingId] = useState(null);
+  ]); 
 
   const isAdmin = activeChama?.isAdmin || false;
 
@@ -109,77 +100,13 @@ const AdminDashboard = () => {
     }
   };
 
-  const validateTransactionId = (id) => {
-    const regex = /^[A-Z0-9]{10}$/;
-    return regex.test(id);
-  };
-
-  const handleAddTransaction = () => {
-    if (!isAdmin) {
-      setError('Only admins can add transactions');
-      return;
-    }
-    
-    if (!validateTransactionId(newTransaction.transactionId)) {
-      setError('Transaction ID must be exactly 10 characters (uppercase letters and numbers only)');
-      return;
-    }
-    
-    if (editingId) {
-      // Update existing transaction
-      setTransactions(transactions.map(t => 
-        t.id === editingId ? { ...newTransaction, id: editingId } : t
-      ));
-    } else {
-      // Add new transaction
-      setTransactions([...transactions, {
-        ...newTransaction,
-        id: Math.max(...transactions.map(t => t.id), 0) + 1
-      }]);
-    }
-    
-    setShowAddModal(false);
-    setNewTransaction({
-      date: '',
-      event: '',
-      member: '',
-      amount: 0,
-      paymentMethod: 'Mpesa',
-      transactionId: '',
-      mpesaReference: 'N/A',
-      status: 'pending'
-    });
-    setEditingId(null);
-    setError('');
-  };
-
-  const handleEditTransaction = (transaction) => {
-    if (!isAdmin) return;
-    
-    setNewTransaction(transaction);
-    setEditingId(transaction.id);
-    setShowAddModal(true);
-  };
-
-  const handleDeleteTransaction = (id) => {
-    if (!isAdmin) return;
-    
-    setTransactions(transactions.filter(t => t.id !== id));
-  };
-
-  const handleTransactionIdChange = (e) => {
-    const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    setNewTransaction({...newTransaction, transactionId: value});
-    setError('');
-  };
-
   // Theme colors based on mode
   const colors = {
     cardBg: darkMode ? '#1e1e2d' : '#ffffff',
     cardText: darkMode ? '#e1e1e1' : '#333',
     mainBg: darkMode 
-      ? 'radial-gradient(circle at 80% 10%, rgba(33, 33, 60, 0.8) 0%, rgba(22, 22, 36, 0.2) 100%)' 
-      : 'radial-gradient(circle at 80% 10%, rgba(54, 135, 90, 0.15) 0%, rgba(240, 255, 244, 0.05) 100%)',
+      ? '#111122'  // Dark mode background
+      : '#ffffff', // Pure white for light mode
     tableHeaderBg: darkMode ? '#222233' : '#f8f9fa',
     tableBorder: darkMode ? '#444' : '#dee2e6',
     tableStripedBg: darkMode ? '#2a2a3a' : '#f9f9f9',
@@ -188,7 +115,9 @@ const AdminDashboard = () => {
   };
 
   // Card styles
-  const moneyInCardStyle = {
+  // Single unified style for all cards:
+  // Add these before your component's return statement
+  const greenCardStyle = {
     borderRadius: '12px',
     border: 'none',
     boxShadow: darkMode ? '0 5px 15px rgba(0,0,0,0.2)' : '0 5px 15px rgba(0,0,0,0.08)',
@@ -196,31 +125,13 @@ const AdminDashboard = () => {
     maxHeight: '180px',
     transition: 'transform 0.3s ease',
     overflow: 'hidden',
-    color: colors.cardText,
-    background: darkMode 
-      ? 'linear-gradient(135deg, #192f2b 0%, #0d2018 100%)'
-      : 'linear-gradient(135deg, #f6fefa 0%, #e1f5ec 100%)',
-    borderLeft: '5px solid #0d8066'
+    color: darkMode ? '#e1e1e1' : '#034a31',
+    background: darkMode ? 'rgba(30, 30, 45, 0.8)' : '#ffffff',
+    borderLeft: `5px solid ${darkMode ? '#33a17c' : '#034a31'}`
   };
 
-  const moneyOutCardStyle = {
-    ...moneyInCardStyle,
-    background: darkMode
-      ? 'linear-gradient(135deg, #2a1a1a 0%, #301515 100%)'
-      : 'linear-gradient(135deg, #fff9f9 0%, #f5e1e1 100%)',
-    borderLeft: '5px solid #d13030'
-  };
-
-  const balanceCardStyle = {
-    ...moneyInCardStyle,
-    background: darkMode
-      ? 'linear-gradient(135deg, #182236 0%, #101827 100%)'
-      : 'linear-gradient(135deg, #f0f6ff 0%, #e1ebf5 100%)',
-    borderLeft: '5px solid #2f7dc5'
-  };
-
-  const iconContainerStyle = (bgColor, darkModeBgColor) => ({
-    backgroundColor: darkMode ? darkModeBgColor : bgColor,
+  const iconContainerStyle = {
+    backgroundColor: darkMode ? '#033a28' : '#d1e7dd',
     width: '40px',
     height: '40px',
     borderRadius: '50%',
@@ -228,7 +139,7 @@ const AdminDashboard = () => {
     justifyContent: 'center',
     alignItems: 'center',
     boxShadow: darkMode ? '0 4px 10px rgba(0,0,0,0.3)' : '0 4px 10px rgba(0,0,0,0.1)'
-  });
+  };
 
   // Main content background styles
   const mainContentStyle = {
@@ -245,36 +156,18 @@ const AdminDashboard = () => {
   };
 
   // Decorative shapes
-  const decorativeShapes = (
+  // Either remove decorativeShapes completely or make them very subtle:
+  const decorativeShapes = darkMode ? (
     <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
-      <div style={{ 
-        position: 'absolute', 
-        top: '5%', 
-        right: '15%', 
-        width: '300px', 
-        height: '300px', 
-        borderRadius: '50%', 
-        background: darkMode ? 'rgba(66, 99, 235, 0.03)' : 'rgba(54, 135, 90, 0.03)', 
-        filter: 'blur(40px)'
-      }}></div>
-      <div style={{ 
-        position: 'absolute', 
-        bottom: '10%', 
-        left: '10%', 
-        width: '200px', 
-        height: '200px', 
-        borderRadius: '50%', 
-        background: darkMode ? 'rgba(66, 99, 235, 0.02)' : 'rgba(54, 135, 90, 0.02)', 
-        filter: 'blur(30px)'
-      }}></div>
+      {/* Keep minimal shapes for dark mode if needed */}
     </div>
-  );
+  ) : null;
 
   // Custom table styles
   const tableStyle = {
     backgroundColor: darkMode ? 'rgba(24, 24, 36, 0.6)' : 'white',
-    color: colors.textPrimary,
-    borderColor: colors.tableBorder,
+    color: darkMode ? '#e1e1e1' : '#034a31',
+    borderColor: darkMode ? '#033a28' : '#d1e7dd',
     boxShadow: darkMode ? '0 5px 15px rgba(0,0,0,0.15)' : '0 5px 15px rgba(0,0,0,0.05)',
     borderRadius: '8px',
     overflow: 'hidden',
@@ -282,22 +175,22 @@ const AdminDashboard = () => {
   };
 
   const tableHeadStyle = {
-    backgroundColor: colors.tableHeaderBg,
-    color: colors.textPrimary,
-    fontSize: '0.9rem'
+    backgroundColor: darkMode ? '#033a28' : '#e8f5f0',
+    fontSize: '0.9rem',
+    fontWeight: '600'
   };
 
   // Container style
   const containerStyle = {
     background: darkMode 
       ? 'rgba(30, 30, 45, 0.8)' 
-      : 'rgba(255, 255, 255, 0.8)',
+      : '#ffffff', // Pure white background
     backdropFilter: 'blur(10px)',
     borderRadius: '15px',
     padding: '20px',
     boxShadow: darkMode 
       ? '0 8px 20px rgba(0, 0, 0, 0.3)' 
-      : '0 8px 20px rgba(0, 0, 0, 0.1)',
+      : '0 8px 20px rgba(0, 0, 0, 0.05)', // Lighter shadow for light mode
     marginRight: '20px',
     transition: 'all 0.3s ease',
     color: darkMode ? '#e1e1e1' : '#333',
@@ -313,6 +206,14 @@ const AdminDashboard = () => {
   
   const moneyOut = 20000; // This would come from your data
   const balance = moneyIn - moneyOut;
+  const [searchTerm, setSearchTerm] = useState('');
+  // Filter transactions based on search term
+  const filteredTransactions = transactions.filter(transaction => 
+    transaction.member.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    transaction.event.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    transaction.transactionId.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
 
   return (
     <div className="admin-dashboard" style={{ 
@@ -332,9 +233,18 @@ const AdminDashboard = () => {
             paddingRight: '20px'
           }}>
             <div>
-              <h1 style={{ color: colors.textPrimary, fontWeight: '600', margin: 0, fontSize: '1.8rem' }}>
-                {activeChama?.name || 'My'} Dashboard
+              <h1 style={{ color: colors.textPrimary, fontWeight: '300', margin: 0, fontSize: '0.6rem', lineHeight: '1.4' }}>
+                <h1>Welcome to {activeChama?.name || 'your chama'}</h1>
               </h1>
+              {/* New Subheading */}
+              <p style={{
+                color: colors.textSecondary,
+                margin: '4px 0 0 0',
+                fontSize: '0.9rem',
+                fontWeight: '400'
+              }}>
+                Here is your contribution overview.
+              </p>
               {activeChama && (
                 <Badge bg={isAdmin ? "primary" : "secondary"} className="mt-1">
                   {isAdmin ? 'Admin' : 'Member'}
@@ -370,274 +280,359 @@ const AdminDashboard = () => {
           </div>
           
           <div style={containerStyle}>
-            {/* Summary Cards */}
-            <Row className="g-3 mb-4">
-              <Col md={4}>
-                <Card style={moneyInCardStyle}>
+          {/* Summary Cards */}
+          <Row className="g-3 mb-4">
+              <Col md={3}>
+                <Card style={greenCardStyle}>
                   <Card.Body className="d-flex flex-column justify-content-between p-3">
                     <div className="d-flex justify-content-between align-items-center mb-2">
-                      <div style={{ color: darkMode ? '#aaa' : '#666' }} className="h6 mb-0">Money In</div>
-                      <div style={iconContainerStyle('#e6f7f0', '#143328')}>
-                        <FiDollarSign size={20} style={{ color: darkMode ? '#36875a' : '#0d8066' }} />
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="mt-2 mb-1">Ksh {moneyIn.toLocaleString()}</h3>
-                      <div className="text-success d-flex align-items-center" style={{ fontSize: '0.8rem' }}>
+                      <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">Total Contributions</div>
+                        <div style={iconContainerStyle}>
+                         <FiDollarSign size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
+                        </div>
+                       </div>
+                      <div>
+                        <h3 className="mt-2 mb-1">Ksh {moneyIn.toLocaleString()}</h3>
+                        <div className="text-success d-flex align-items-center" style={{ fontSize: '0.8rem' }}>
                         <span>▲</span>
-                        <span className="ms-1">23.36%</span>
+                        <span className="ms-1">23.36% from last month</span>
                       </div>
+                      </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+
+              <Col md={3}>
+                <Card style={greenCardStyle}>
+                  <Card.Body className="d-flex flex-column justify-content-between p-3">
+                   <div className="d-flex justify-content-between align-items-center mb-2">
+                     <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">Contribution Goal</div>
+                      <div style={iconContainerStyle}>
+                        <FiTarget size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
+                      </div>
+                      </div>
+                       <div>
+                      <h3 className="mt-2 mb-1">Ksh 100,000</h3>
+                      <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="small">
+                     Target amount
+                    </div>
+                  </div>
+                 </Card.Body>
+               </Card>
+              </Col>
+
+              <Col md={3}>
+                <Card style={greenCardStyle}>
+                  <Card.Body className="d-flex flex-column justify-content-between p-3">
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">Remaining to Goal</div>
+                      <div style={iconContainerStyle}>
+                        <FiCalendar size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
+                       </div>
+                      </div>
+                      <div>
+                        <h3 className="mt-2 mb-1">Ksh {(100000 - moneyIn).toLocaleString()}</h3>
+                        <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="small">
+                          {((100000 - moneyIn)/1000).toFixed(0)}k left
+                        </div>
                     </div>
                   </Card.Body>
                 </Card>
               </Col>
-              <Col md={4}>
-                <Card style={moneyOutCardStyle}>
+
+              <Col md={3}>
+                <Card style={greenCardStyle}>
                   <Card.Body className="d-flex flex-column justify-content-between p-3">
                     <div className="d-flex justify-content-between align-items-center mb-2">
-                      <div style={{ color: darkMode ? '#aaa' : '#666' }} className="h6 mb-0">Money Out</div>
-                      <div style={iconContainerStyle('#f9e6e6', '#331515')}>
-                        <FiDollarSign size={20} style={{ color: darkMode ? '#ff6b6b' : '#d13030' }} />
+                    <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">Percentage Reached</div>
+                      <div style={iconContainerStyle}>
+                        <FiPercent size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
                       </div>
                     </div>
                     <div>
-                      <h3 className="mt-2 mb-1">Ksh {moneyOut.toLocaleString()}</h3>
-                      <div className="text-danger d-flex align-items-center" style={{ fontSize: '0.8rem' }}>
-                        <span>▼</span>
-                        <span className="ms-1">9.05%</span>
-                      </div>
-                    </div>
-                  </Card.Body>
-                </Card>
-              </Col>
-              <Col md={4}>
-                <Card style={balanceCardStyle}>
-                  <Card.Body className="d-flex flex-column justify-content-between p-3">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <div style={{ color: darkMode ? '#aaa' : '#666' }} className="h6 mb-0">Balance</div>
-                      <div style={iconContainerStyle('#e6f0f9', '#15273a')}>
-                        <FiDollarSign size={20} style={{ color: darkMode ? '#5e9de6' : '#2f7dc5' }} />
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="mt-2 mb-1">Ksh {balance.toLocaleString()}</h3>
-                      <div style={{ height: '21px' }}></div>
-                    </div>
-                  </Card.Body>
-                </Card>
+                      <h3 className="mt-2 mb-1">{(moneyIn/100000 * 100).toFixed(1)}%</h3>
+                      <div className="progress" style={{ height: '6px', backgroundColor: darkMode ? '#033a28' : '#e8f5f0' }}>
+                        <div 
+                          className="progress-bar" 
+                          role="progressbar" 
+                          style={{ 
+                            width: `${moneyIn/100000 * 100}%`,
+                            backgroundColor: darkMode ? '#33a17c' : '#034a31'
+                          }} 
+                      ></div>
+                     </div>
+                   </div>
+                 </Card.Body>
+               </Card>
               </Col>
             </Row>
             
+            {/* Contribution Types and Recent Activity */}
+            <Row className="g-3 mb-4">
+                <Col md={8}>
+                  <Card style={{
+                    borderRadius: '12px',
+                    border: 'none',
+                    boxShadow: darkMode ? '0 5px 15px rgba(0,0,0,0.2)' : '0 5px 15px rgba(0,0,0,0.08)',
+                    height: '100%',
+                    transition: 'transform 0.3s ease',
+                    overflow: 'hidden',
+                    backgroundColor: darkMode ? 'rgba(30, 30, 45, 0.8)' : '#ffffff',
+                    color: colors.textPrimary
+                  }}>
+                    <Card.Body>
+                      <Card.Title style={{ color: colors.textPrimary }}>Contribution Types</Card.Title>
+                      <div style={{ height: '300px' }}>
+                        {/* Pie Chart - Using react-chartjs-2 */}
+                        <Pie
+                          data={{
+                            labels: ['Wedding', 'Ruracio', 'Harambee', 'Emergency', 'Other'],
+                            datasets: [{
+                              data: [45, 25, 15, 10, 5],
+                              backgroundColor: [
+                                '#034a31',  // Dark green
+                                '#33a17c',  // Light green
+                                '#5cb85c',  // Medium green
+                                '#8fd19e',  // Pale green
+                                '#c8e6c9'   // Very pale green
+                              ],
+                            borderColor: darkMode ? '#222233' : '#ffffff',
+                            borderWidth: 2
+                          }]
+                        }}
+                        options={{
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: {
+                              position: 'right',
+                              labels: {
+                                color: colors.textPrimary
+                              }
+                            },
+                            tooltip: {
+                              callbacks: {
+                                label: function(context) {
+                                  return `${context.label}: ${context.raw}%`;
+                                }
+                              }
+                            }
+                          }
+                        }}
+                      />
+                      </div>
+                    </Card.Body>
+                  </Card>
+                </Col>
+
+                {/* Recent Activity Column (md={4}) */}
+                <Col md={4}>
+                  <Card style={{
+                  borderRadius: '12px',
+                  border: 'none',
+                  boxShadow: darkMode ? '0 5px 15px rgba(0,0,0,0.2)' : '0 5px 15px rgba(0,0,0,0.08)',
+                  height: '100%',
+                  backgroundColor: darkMode ? 'rgba(30, 30, 45, 0.8)' : '#ffffff',
+                 }}>
+                  <Card.Body>
+                    <Card.Title style={{ color: darkMode ? '#33a17c' : '#034a31', marginBottom: '1rem' }}>
+                      Recent Activity
+                    </Card.Title>
+                    <div style={{ height: '300px', overflowY: 'auto' }}>
+                      <ListGroup as="ol" numbered style={{ 
+                        border: 'none',
+                        '--bs-list-group-bg': 'transparent',
+                        '--bs-list-group-border-color': darkMode ? '#033a28' : '#d1e7dd'
+                      }}>
+                          <ListGroup.Item 
+                            as="li"
+                            className="d-flex align-items-start py-3"
+                            style={{
+                              backgroundColor: darkMode ? 'rgba(40, 40, 60, 0.4)' : '#f8f9fa',
+                              borderColor: darkMode ? '#033a28' : '#d1e7dd'
+                            }}
+                          >
+                            <div className="ms-2 me-auto">
+                              <div className="d-flex align-items-center" style={{ color: darkMode ? '#33a17c' : '#034a31' }}>
+                                <FiUser className="me-2" size={16} />
+                                <strong>John Doe</strong>
+                              </div>
+                              <small className="text-muted mt-1">
+                                Made contribution of Ksh 5,000 • 2 mins ago
+                              </small>
+                            </div>
+                          </ListGroup.Item>
+
+                          <ListGroup.Item 
+                            as="li"
+                            className="d-flex align-items-start py-3"
+                            style={{
+                              backgroundColor: darkMode ? 'rgba(40, 40, 60, 0.4)' : '#f8f9fa',
+                              borderColor: darkMode ? '#033a28' : '#d1e7dd'
+                            }}
+                          >
+                            <div className="ms-2 me-auto">
+                              <div className="d-flex align-items-center" style={{ color: darkMode ? '#33a17c' : '#034a31' }}>
+                                <FiEdit2 className="me-2" size={16} />
+                                <strong>Admin</strong>
+                              </div>
+                              <small className="text-muted mt-1">
+                                Updated records • 15 mins ago
+                              </small>
+                            </div>
+                          </ListGroup.Item>
+
+                          <ListGroup.Item 
+                            as="li"
+                            className="d-flex align-items-start py-3"
+                            style={{
+                              backgroundColor: darkMode ? 'rgba(40, 40, 60, 0.4)' : '#f8f9fa',
+                              borderColor: darkMode ? '#033a28' : '#d1e7dd'
+                            }}
+                          >
+                            <div className="ms-2 me-auto">
+                              <div className="d-flex align-items-center" style={{ color: darkMode ? '#33a17c' : '#034a31' }}>
+                                <FiCalendar className="me-2" size={16} />
+                                <strong>New Event</strong>
+                              </div>
+                              <small className="text-muted mt-1">
+                                Mary's Wedding • 1 hour ago
+                              </small>
+                            </div>
+                          </ListGroup.Item>
+
+                          <ListGroup.Item 
+                            as="li"
+                            className="d-flex align-items-start py-3"
+                            style={{
+                              backgroundColor: darkMode ? 'rgba(40, 40, 60, 0.4)' : '#f8f9fa',
+                              borderColor: darkMode ? '#033a28' : '#d1e7dd'
+                            }}
+                          >
+                            <div className="ms-2 me-auto">
+                              <div className="d-flex align-items-center" style={{ color: darkMode ? '#33a17c' : '#034a31' }}>
+                                <FiDollarSign className="me-2" size={16} />
+                                <strong>Jane Smith</strong>
+                              </div>
+                              <small className="text-muted mt-1">
+                                Contributed Ksh 10,000 • 3 hours ago
+                              </small>
+                            </div>
+                          </ListGroup.Item>
+
+                          <ListGroup.Item 
+                            as="li"
+                            className="d-flex align-items-start py-3"
+                            style={{
+                              backgroundColor: darkMode ? 'rgba(40, 40, 60, 0.4)' : '#f8f9fa',
+                              borderColor: darkMode ? '#033a28' : '#d1e7dd'
+                            }}
+                          >
+                            <div className="ms-2 me-auto">
+                              <div className="d-flex align-items-center" style={{ color: darkMode ? '#33a17c' : '#034a31' }}>
+                                <FiSettings className="me-2" size={16} />
+                                <strong>System Update</strong>
+                              </div>
+                              <small className="text-muted mt-1">
+                                Settings modified • 5 hours ago
+                              </small>
+                            </div>
+                          </ListGroup.Item>
+                        </ListGroup>
+                      </div>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              </Row>
+             
             {/* Recent Transactions */}
             <div style={{ marginTop: '25px', position: 'relative', zIndex: 1 }}>
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <h4 style={{ color: colors.textPrimary, marginBottom: 0 }}>
-                  Recent Transactions
-                </h4>
-                {isAdmin && (
-                  <Button 
-                    variant={darkMode ? "outline-success" : "success"}
-                    onClick={() => setShowAddModal(true)}
-                    className="d-flex align-items-center"
-                    size="sm"
-                  >
-                    <FiPlus className="me-1" /> Add Transaction
-                  </Button>
-                )}
-              </div>
-              
-              <div className="table-responsive">
-                <Table 
-                  striped 
-                  bordered 
-                  hover 
-                  responsive 
-                  style={tableStyle}
-                  variant={darkMode ? "dark" : "light"}
-                  className="table-sm"
-                >
-                  <thead style={tableHeadStyle}>
-                    <tr>
-                      <th>DATE</th>
-                      <th>EVENT</th>
-                      <th>MEMBER</th>
-                      <th>AMOUNT</th>
-                      <th>METHOD</th>
-                      <th>TRANSACTION ID</th>
-                      {isAdmin && <th>REFERENCE</th>}
-                      <th>STATUS</th>
-                      {isAdmin && <th>ACTIONS</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((transaction) => (
-                      <tr key={transaction.id} style={{ 
-                        backgroundColor: darkMode 
-                          ? 'rgba(40, 40, 60, 0.4)' 
-                          : 'rgba(249, 249, 249, 0.8)'
-                      }}>
-                        <td>{transaction.date}</td>
-                        <td>{transaction.event}</td>
-                        <td>{transaction.member}</td>
-                        <td>Ksh {transaction.amount.toLocaleString()}</td>
-                        <td>{transaction.paymentMethod}</td>
-                        <td>{transaction.transactionId}</td>
-                        {isAdmin && <td>{transaction.mpesaReference}</td>}
-                        <td>
-                          <Badge 
-                            bg={transaction.status === 'completed' ? 'success' : 'warning'} 
-                            className="text-capitalize"
-                          >
-                            {transaction.status}
-                          </Badge>
-                        </td>
-                        {isAdmin && (
-                          <td>
-                            <div className="d-flex gap-2">
-                              <Button 
-                                variant="outline-primary" 
-                                size="sm" 
-                                onClick={() => handleEditTransaction(transaction)}
-                              >
-                                <FiEdit2 size={14} />
-                              </Button>
-                              <Button 
-                                variant="outline-danger" 
-                                size="sm"
-                                onClick={() => handleDeleteTransaction(transaction.id)}
-                              >
-                                <FiTrash2 size={14} />
-                              </Button>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
+            <div className="position-relative">
+              <h4 style={{ color: colors.textPrimary, marginBottom: '16px' }}>
+                Recent Transactions
+              </h4>
+              <p style={{ 
+                color: colors.textSecondary, 
+                fontSize: '0.9rem',
+                marginBottom: '16px'
+              }}>
+                Search and filter transaction history
+              </p>
+              <div className="d-flex align-items-center gap-3">
+                {/* Search Bar */}
+                <div className="position-relative" style={{ width: '600px' }}>
+                  <Form.Control
+                    type="search"
+                    placeholder="Search transactions..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className={darkMode ? "bg-dark text-light border-secondary" : ""}
+                    style={{
+                      borderRadius: '20px',
+                      paddingLeft: '40px',
+                      borderColor: darkMode ? '#444' : '#dee2e6'
+                    }}
+                  />
+                  <FiSearch 
+                    size={18} 
+                    style={{
+                      position: 'absolute',
+                      left: '15px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: darkMode ? '#aaa' : '#666'
+                    }} 
+                  />
+                </div>
               </div>
             </div>
+
+            <div className="table-responsive">
+              <Table responsive style={tableStyle} className="align-middle">
+              <thead style={{ ...tableHeadStyle, color: darkMode ? '#33a17c' : '#034a31' }}>
+                <tr>
+                  <th>Transaction ID</th>
+                  <th>Contributor</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                  <th>Method</th>
+                  <th>Category</th>
+                  <th className="text-end">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((transaction) => (
+                  <tr key={transaction.id} style={{ 
+                    backgroundColor: darkMode ? 'rgba(40, 40, 60, 0.4)' : 'rgba(249, 249, 249, 0.8)',
+                    color: darkMode ? '#e1e1e1' : '#034a31'
+                  }}>
+                    <td>{transaction.transactionId}</td>
+                    <td>{transaction.member}</td>
+                    <td>Ksh {transaction.amount.toLocaleString()}</td>
+                    <td>{transaction.date}</td>
+                    <td>{transaction.paymentMethod}</td>
+                    <td>{transaction.event}</td>
+                    <td className="text-end">
+                      <Badge 
+                        bg={transaction.status === 'completed' ? 'success' : 'warning'} 
+                        className="text-capitalize"
+                        style={{
+                          backgroundColor: transaction.status === 'completed' 
+                            ? darkMode ? '#33a17c' : '#034a31'
+                            : darkMode ? '#d4a017' : '#ffc107'
+                        }}
+                      >
+                        {transaction.status}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            </div>
+          </div>
           </div>
         </div>
       </div>
-
-      {/* Add/Edit Transaction Modal */}
-      <Modal 
-        show={showAddModal} 
-        onHide={() => {
-          setShowAddModal(false);
-          setError('');
-          setEditingId(null);
-        }}
-        contentClassName={darkMode ? "bg-dark text-light" : ""}
-        centered
-      >
-        <Modal.Header closeButton className={darkMode ? "border-secondary" : ""}>
-          <Modal.Title>
-            {editingId ? 'Edit Transaction' : 'Add New Transaction'}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {error && (
-            <Alert variant="danger" className="mb-3">
-              {error}
-            </Alert>
-          )}
-          <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Date</Form.Label>
-              <Form.Control 
-                type="date" 
-                value={newTransaction.date}
-                onChange={(e) => setNewTransaction({...newTransaction, date: e.target.value})}
-                className={darkMode ? "bg-dark text-light border-secondary" : ""}
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Event</Form.Label>
-              <Form.Control 
-                type="text" 
-                value={newTransaction.event}
-                onChange={(e) => setNewTransaction({...newTransaction, event: e.target.value})}
-                className={darkMode ? "bg-dark text-light border-secondary" : ""}
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Member</Form.Label>
-              <Form.Control 
-                type="text" 
-                value={newTransaction.member}
-                onChange={(e) => setNewTransaction({...newTransaction, member: e.target.value})}
-                className={darkMode ? "bg-dark text-light border-secondary" : ""}
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Amount (Ksh)</Form.Label>
-              <Form.Control 
-                type="number" 
-                value={newTransaction.amount}
-                onChange={(e) => setNewTransaction({...newTransaction, amount: parseFloat(e.target.value) || 0})}
-                className={darkMode ? "bg-dark text-light border-secondary" : ""}
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Payment Method</Form.Label>
-              <Form.Select 
-                value={newTransaction.paymentMethod}
-                onChange={(e) => setNewTransaction({...newTransaction, paymentMethod: e.target.value})}
-                className={darkMode ? "bg-dark text-light border-secondary" : ""}
-              >
-                <option value="Mpesa">Mpesa</option>
-                <option value="Bank">Bank</option>
-                <option value="Cash">Cash</option>
-              </Form.Select>
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Transaction ID</Form.Label>
-              <Form.Control 
-                type="text" 
-                value={newTransaction.transactionId}
-                onChange={handleTransactionIdChange}
-                maxLength={10}
-                placeholder="10 characters (A-Z, 0-9)"
-                className={darkMode ? "bg-dark text-light border-secondary" : ""}
-              />
-              <Form.Text className={darkMode ? "text-light-50" : "text-muted"}>
-                Must be exactly 10 uppercase letters and/or numbers
-              </Form.Text>
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>Status</Form.Label>
-              <Form.Select 
-                value={newTransaction.status}
-                onChange={(e) => setNewTransaction({...newTransaction, status: e.target.value})}
-                className={darkMode ? "bg-dark text-light border-secondary" : ""}
-              >
-                <option value="pending">Pending</option>
-                <option value="completed">Completed</option>
-              </Form.Select>
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer className={darkMode ? "border-secondary" : ""}>
-          <Button 
-            variant={darkMode ? "outline-light" : "secondary"} 
-            onClick={() => {
-              setShowAddModal(false);
-              setError('');
-              setEditingId(null);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button 
-            variant="primary" 
-            onClick={handleAddTransaction}
-          >
-            {editingId ? 'Update Transaction' : 'Add Transaction'}
-          </Button>
-        </Modal.Footer>
-      </Modal>
     </div>
   );
 };

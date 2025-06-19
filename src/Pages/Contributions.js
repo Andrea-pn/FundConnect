@@ -2,15 +2,15 @@ import React, { useState, useEffect, useContext } from 'react';
 import { 
   Container, Row, Col, Card, Form, Button, 
   Modal, Badge, Spinner, Alert, Table,
-  InputGroup, Dropdown, ButtonGroup, Tab, Tabs, ListGroup, FormControl
+  InputGroup, Dropdown, ButtonGroup, ListGroup, FormControl
 } from 'react-bootstrap';
 import { 
   FiDollarSign, FiPlus, FiEdit2, FiTrash2, 
   FiCheckCircle, FiXCircle, FiDownload, 
-  FiSearch, FiUser, FiCalendar, FiCreditCard,
-  FiFilter, FiPrinter, FiMail, FiRefreshCw, FiCheck
+  FiSearch, FiUser,
+  FiFilter, FiPrinter, FiRefreshCw, FiCheck
 } from 'react-icons/fi';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { ChamaContext } from '../App';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
@@ -20,20 +20,16 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 const Contributions = () => {
-  const navigate = useNavigate();
-  const { chama } = useOutletContext();
+  useOutletContext();
   const { activeChama } = useContext(ChamaContext);
   const auth = getAuth();
   
   // State for UI and modals
-  const [darkMode, setDarkMode] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [, setShowEditModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
-  const [currentContribution, setCurrentContribution] = useState(null);
-  const [contributionToDelete, setContributionToDelete] = useState(null);
+  const [, setCurrentContribution] = useState(null);
   const [receiptData, setReceiptData] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -243,7 +239,6 @@ const Contributions = () => {
       
       // Add each contribution to Firestore
       const newContributions = [];
-      const batch = [];
       
       for (const contrib of bulkFormData.contributions) {
         const docRef = await addDoc(collection(db, 'contributions'), {
@@ -484,7 +479,7 @@ const downloadPDF = (filterType) => {
   };
 
   // Add this function inside your component before the return statement
-const handleStatusChange = async (id, newStatus) => {
+  const handleStatusChange = async (id, newStatus) => {
   if (!isAdmin) {
     toast.error('Only admins can change contribution status');
     return;
@@ -531,7 +526,7 @@ const handleStatusChange = async (id, newStatus) => {
       <Row className="mb-4">
         <Col>
           <h2 className="d-flex align-items-center">
-            <FiDollarSign className="me-2" /> Contributions Management
+            Contributions Management
             <Badge bg="primary" className="ms-3">
               {activeChama?.name}
             </Badge>
@@ -588,7 +583,7 @@ const handleStatusChange = async (id, newStatus) => {
       {/* Stats Cards */}
       <Row className="mb-4 g-3">
         <Col md={4}>
-          <Card className="border-primary">
+          <Card className="border-info">
             <Card.Body>
               <div className="d-flex justify-content-between">
                 <div>
@@ -596,8 +591,8 @@ const handleStatusChange = async (id, newStatus) => {
                   <h3>{stats.total}</h3>
                   <p className="mb-0">Ksh {stats.totalAmount.toLocaleString()}</p>
                 </div>
-                <div className="bg-primary bg-opacity-10 p-3 rounded">
-                  <FiDollarSign size={24} className="text-primary" />
+                <div className="bg-info bg-opacity-10 p-3 rounded">
+                  <FiDollarSign size={24} className="text-info" />
                 </div>
               </div>
             </Card.Body>

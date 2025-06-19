@@ -92,7 +92,7 @@ const Sidebar = ({ darkMode }) => {
       onClick={() => handleNavigation('/home')}
       >
         <FiHome className="me-2" size={20} />
-        Chama
+         Chama
       </h2>
       
       {activeChama && (
