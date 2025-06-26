@@ -163,174 +163,159 @@ const HomePage = () => {
     }
   };
 
-const handleInviteMember = async (e) => {
-  e.preventDefault();
-  setIsInviting(true);
+  const handleInviteMember = async (e) => {
+    e.preventDefault();
+    setIsInviting(true);
 
-  try {
-    // ===== VALIDATION SECTION =====
-    console.log("=== Starting invitation process ===");
-    
-    // Validate user is logged in
-    if (!user || !user.uid) {
-      toast.error("You must be logged in to send invitations");
-      return;
-    }
-
-    // Validate chama is selected
-    if (!currentChama || !currentChama.id) {
-      toast.error("No chama selected");
-      return;
-    }
-
-    // Validate email is provided
-    if (!inviteEmail || !inviteEmail.trim()) {
-      toast.error("Please enter an email address");
-      return;
-    }
-
-    // ===== VERIFY ADMIN STATUS =====
-    const userMembershipsQuery = query(
-      collection(db, 'memberships'),
-      where('userId', '==', user.uid),
-      where('chamaId', '==', currentChama.id)
-    );
-    const userMembershipSnapshot = await getDocs(userMembershipsQuery);
-    
-    if (userMembershipSnapshot.empty) {
-      toast.error("You are not a member of this chama");
-      return;
-    }
-    
-    const userMembership = userMembershipSnapshot.docs[0].data();
-    
-    if (userMembership.role !== 'admin') {
-      toast.error("You must be an admin to invite members");
-      return;
-    }
-
-    // ===== FIND USER TO INVITE =====
-    const usersRef = collection(db, 'users');
-    const userQuery = query(usersRef, where('email', '==', inviteEmail.trim()));
-    const userQuerySnapshot = await getDocs(userQuery);
-  
-    if (userQuerySnapshot.empty) {
-      toast.error("User with this email not found");
-      return;
-    }
-  
-    const userToInvite = userQuerySnapshot.docs[0].data();
-    console.log("Found user to invite:", userToInvite);
-
-    // ===== CHECK FOR EXISTING MEMBERSHIP =====
-    const membershipsRef = collection(db, 'memberships');
-    const membershipQuery = query(
-      membershipsRef,
-      where('chamaId', '==', currentChama.id),
-      where('userId', '==', userToInvite.uid)
-    );
-    const membershipSnapshot = await getDocs(membershipQuery);
-  
-    if (!membershipSnapshot.empty) {
-      toast.warning("User is already a member of this chama");
-      return;
-    }
-
-    // ===== CHECK FOR PENDING INVITATIONS =====
-    const invitationsRef = collection(db, 'invitations');
-    const invitationQuery = query(
-      invitationsRef,
-      where('chamaId', '==', currentChama.id),
-      where('invitedUserId', '==', userToInvite.uid),
-      where('status', '==', 'pending')
-    );
-    const invitationSnapshot = await getDocs(invitationQuery);
-  
-    if (!invitationSnapshot.empty) {
-      toast.info("Invitation already sent to this user");
-      return;
-    }
-
-    // ===== CREATE MEMBERSHIP RECORD =====
-    const membershipData = {
-      userId: userToInvite.uid,
-      chamaId: currentChama.id,
-      chamaName: currentChama.name,
-      name: userToInvite.displayName || inviteEmail.split('@')[0],
-      email: inviteEmail.trim(),
-      phone: userToInvite.phoneNumber || '',
-      role: 'member',
-      status: 'pending',
-      joinDate: serverTimestamp(),
-      createdAt: serverTimestamp(),
-      createdBy: user.uid,
-      updatedAt: serverTimestamp()
-    };
-
-    console.log("Creating membership with data:", membershipData);
-    const membershipRef = await addDoc(collection(db, 'memberships'), membershipData);
-    console.log("Membership created with ID:", membershipRef.id);
-
-    // ===== CREATE INVITATION RECORD =====
-    const invitationData = {
-      chamaId: currentChama.id,
-      chamaName: currentChama.name,
-      invitedUserId: userToInvite.uid,
-      invitedUserEmail: inviteEmail.trim(),
-      inviterUserId: user.uid,
-      inviterEmail: user.email,
-      membershipId: membershipRef.id, // Link to membership
-      status: 'pending',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      inviterName: user.displayName || user.email || 'Admin'
-    };
-
-    console.log("Creating invitation with data:", invitationData);
-    const inviteDocRef = await addDoc(collection(db, 'invitations'), invitationData);
-    console.log("Invitation created with ID:", inviteDocRef.id);
-
-    // ===== SUCCESS HANDLING =====
-    toast.success(`Successfully invited ${inviteEmail} to ${currentChama.name}`);
-    setInviteEmail('');
-    setShowInviteModal(false);
-
-    // Return success with new member data
-    return {
-      success: true,
-      newMember: {
-        id: membershipRef.id,
-        ...membershipData,
-        joinDate: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+    try {
+      // ===== VALIDATION SECTION =====
+      console.log("=== Starting invitation process ===");
+      
+      // Validate user is logged in
+      if (!user || !user.uid) {
+        toast.error("You must be logged in to send invitations");
+        return;
       }
-    };
 
-  } catch (error) {
-    console.error("❌ Error in invitation process:", {
-      error: error,
-      code: error.code,
-      message: error.message,
-      stack: error.stack
-    });
+      // Validate chama is selected
+      if (!currentChama || !currentChama.id) {
+        toast.error("No chama selected");
+        return;
+      }
 
-    // Specific error handling
-    if (error.code === 'permission-denied') {
-      toast.error("You don't have permission to invite members");
-    } else if (error.code === 'invalid-argument') {
-      toast.error("Invalid data. Please check all fields.");
-    } else if (error.message.includes('network')) {
-      toast.error("Network error. Please check your connection.");
-    } else {
-      toast.error("Failed to send invitation. Please try again.");
+      // Validate email is provided
+      if (!inviteEmail || !inviteEmail.trim()) {
+        toast.error("Please enter an email address");
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(inviteEmail.trim())) {
+        toast.error("Please enter a valid email address");
+        return;
+      }
+
+      // ===== VERIFY ADMIN STATUS =====
+      const userMembershipsQuery = query(
+        collection(db, 'memberships'),
+        where('userId', '==', user.uid),
+        where('chamaId', '==', currentChama.id)
+      );
+      const userMembershipSnapshot = await getDocs(userMembershipsQuery);
+      
+      if (userMembershipSnapshot.empty) {
+        toast.error("You are not a member of this chama");
+        return;
+      }
+      
+      const userMembership = userMembershipSnapshot.docs[0].data();
+      
+      if (userMembership.role !== 'admin') {
+        toast.error("You must be an admin to invite members");
+        return;
+      }
+
+      // ===== FIND USER TO INVITE =====
+      const usersRef = collection(db, 'users');
+      const userQuery = query(usersRef, where('email', '==', inviteEmail.trim()));
+      const userQuerySnapshot = await getDocs(userQuery);
+    
+      if (userQuerySnapshot.empty) {
+        toast.error("User with this email not found. They need to register first.");
+        return;
+      }
+    
+      const userToInvite = userQuerySnapshot.docs[0].data();
+      console.log("Found user to invite:", userToInvite);
+
+      // ===== CHECK FOR EXISTING MEMBERSHIP =====
+      const membershipsRef = collection(db, 'memberships');
+      const membershipQuery = query(
+        membershipsRef,
+        where('chamaId', '==', currentChama.id),
+        where('userId', '==', userToInvite.uid)
+      );
+      const membershipSnapshot = await getDocs(membershipQuery);
+    
+      if (!membershipSnapshot.empty) {
+        toast.warning("User is already a member of this chama");
+        return;
+      }
+
+      // ===== CHECK FOR PENDING INVITATIONS =====
+      const invitationsRef = collection(db, 'invitations');
+      const invitationQuery = query(
+        invitationsRef,
+        where('chamaId', '==', currentChama.id),
+        where('invitedUserEmail', '==', inviteEmail.trim()),
+        where('status', '==', 'pending')
+      );
+      const invitationSnapshot = await getDocs(invitationQuery);
+    
+      if (!invitationSnapshot.empty) {
+        toast.info("Invitation already sent to this user");
+        return;
+      }
+
+      // ===== CREATE ONLY INVITATION RECORD (NOT MEMBERSHIP) =====
+      const invitationData = {
+        chamaId: currentChama.id,
+        chamaName: currentChama.name,
+        invitedUserId: userToInvite.uid,
+        invitedUserEmail: inviteEmail.trim(),
+        invitedUserName: userToInvite.displayName || userToInvite.name || inviteEmail.split('@')[0],
+        invitedUserPhone: userToInvite.phoneNumber || userToInvite.phone || '',
+        inviterUserId: user.uid,
+        inviterEmail: user.email,
+        inviterName: user.displayName || user.email || 'Admin',
+        proposedRole: 'member', // Default role for invited users
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days expiry
+      };
+
+      console.log("Creating invitation with data:", invitationData);
+      const inviteDocRef = await addDoc(collection(db, 'invitations'), invitationData);
+      console.log("Invitation created with ID:", inviteDocRef.id);
+
+      // ===== SUCCESS HANDLING =====
+      toast.success(`Successfully invited ${inviteEmail} to ${currentChama.name}`);
+      setInviteEmail('');
+      setShowInviteModal(false);
+
+      // TODO: Send email notification to the invited user
+      // You might want to implement email sending here or trigger a cloud function
+
+      return {
+        success: true,
+        invitationId: inviteDocRef.id
+      };
+
+    } catch (error) {
+      console.error("❌ Error in invitation process:", {
+        error: error,
+        code: error.code,
+        message: error.message,
+        stack: error.stack
+      });
+
+      // Specific error handling
+      if (error.code === 'permission-denied') {
+        toast.error("You don't have permission to invite members");
+      } else if (error.code === 'invalid-argument') {
+        toast.error("Invalid data. Please check all fields.");
+      } else if (error.message.includes('network')) {
+        toast.error("Network error. Please check your connection.");
+      } else {
+        toast.error("Failed to send invitation. Please try again.");
+      }
+
+      return { success: false, error };
+    } finally {
+      setIsInviting(false);
     }
-
-    return { success: false, error };
-  } finally {
-    setIsInviting(false);
-  }
-};
+  };
 
   const handleChamaChange = (e) => {
     const { name, value } = e.target;
