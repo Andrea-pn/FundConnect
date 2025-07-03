@@ -12,7 +12,7 @@ import {
 import { useOutletContext } from 'react-router-dom';
 import { ChamaContext } from '../App';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp, query, where, getDoc, getDocs, doc, updateDoc, onSnapshot} from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDoc, getDocs, doc, updateDoc, onSnapshot, orderBy } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { toast } from 'react-toastify';
 import { jsPDF } from 'jspdf';
@@ -34,7 +34,7 @@ const Contributions = () => {
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Form states
+  //Form states
   const [formData, setFormData] = useState({
     memberId: '',
     memberName: '',
@@ -58,6 +58,8 @@ const Contributions = () => {
   const [contributions, setContributions] = useState([]);
   const [members, setMembers] = useState([]);
   const [filteredContributions, setFilteredContributions] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [chamaSettings, setChamaSettings] = useState(null);
 
   const isAdmin = activeChama?.isAdmin || false;
 
@@ -142,6 +144,54 @@ const Contributions = () => {
     
     return 'Unknown Member';
   }, []);
+
+  //Gives the contribution type options
+  const getContributionTypeOptions = useCallback(() => {
+    console.log('=== GENERATING CONTRIBUTION OPTIONS ===');
+    console.log('chamaSettings:', chamaSettings);
+    console.log('events:', events);
+    
+    const options = [];
+    
+    // Add the chama's contribution period (e.g., Monthly, Weekly, etc.)
+    if (chamaSettings?.contributionPeriod) {
+      options.push({
+        value: chamaSettings.contributionPeriod,
+        label: chamaSettings.contributionPeriod
+      });
+      console.log('Added chama period:', chamaSettings.contributionPeriod);
+    } else {
+      // Default period if not set
+      options.push({
+        value: 'Monthly',
+        label: 'Monthly'
+      });
+      console.log('Added default Monthly');
+    }
+    
+    // Add standard contribution types
+    options.push(
+      { value: 'Fine', label: 'Fine' },
+      { value: 'Loan Repayment', label: 'Loan Repayment' }
+    );
+    console.log('Added standard types');
+    
+    // Add active events
+    console.log('Processing events:', events.length);
+    events.forEach(event => {
+      console.log('Event:', event.name, 'Status:', event.status);
+      if (event.name && event.status === 'Active') {
+        options.push({
+          value: `Event: ${event.name}`,
+          label: `Event: ${event.name}`
+        });
+        console.log('Added event:', event.name);
+      }
+    });
+    
+    console.log('Final options:', options);
+    return options;
+  }, [chamaSettings, events]);
 
 
   // Enhanced data fetching function that mimics the Members component approach
@@ -368,7 +418,99 @@ const Contributions = () => {
         console.error('Error fetching contributions:', contributionsError);
         setError('Failed to load contributions');
       }
+
+      // Fetch events from chama subcollection
+      try {
+        console.log('Fetching events for chama:', activeChama.id);
+        
+        // Try the subcollection approach first
+        const eventsQuery = query(
+          collection(db, 'chamas', activeChama.id, 'events'),
+          orderBy('createdAt', 'desc')
+        );
+        const eventsSnapshot = await getDocs(eventsQuery);
+        
+        if (eventsSnapshot.size > 0) {
+          const eventsData = eventsSnapshot.docs.map(doc => {
+            const data = doc.data();
+            console.log('Event found:', data);
+            return {
+              id: doc.id,
+              ...data,
+              // Handle date conversion safely
+              date: data.date?.toDate?.()?.toISOString().split('T')[0] || data.date || '',
+              createdAt: data.createdAt?.toDate?.() || data.createdAt || new Date()
+            };
+          });
+          
+          console.log('Events loaded from subcollection:', eventsData.length);
+          setEvents(eventsData);
+        } else {
+          // Fallback: try main events collection
+          console.log('No events in subcollection, trying main collection');
+          const mainEventsQuery = query(
+            collection(db, 'events'),
+            where('chamaId', '==', activeChama.id),
+            orderBy('createdAt', 'desc')
+          );
+          const mainEventsSnapshot = await getDocs(mainEventsQuery);
+          
+          const mainEventsData = mainEventsSnapshot.docs.map(doc => {
+            const data = doc.data();
+            console.log('Event found in main collection:', data);
+            return {
+              id: doc.id,
+              ...data,
+              date: data.date?.toDate?.()?.toISOString().split('T')[0] || data.date || '',
+              createdAt: data.createdAt?.toDate?.() || data.createdAt || new Date()
+            };
+          });
+          
+          console.log('Events loaded from main collection:', mainEventsData.length);
+          setEvents(mainEventsData);
+        }
+      } catch (eventsError) {
+        console.error('Error fetching events:', eventsError);
+
+        // Try without orderBy in case createdAt field doesn't exist
+        try {
+          console.log('Retrying events fetch without orderBy');
+          const simpleEventsQuery = query(
+            collection(db, 'chamas', activeChama.id, 'events')
+          );
+          const simpleEventsSnapshot = await getDocs(simpleEventsQuery);
+          
+          const simpleEventsData = simpleEventsSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              date: data.date?.toDate?.()?.toISOString().split('T')[0] || data.date || '',
+              createdAt: data.createdAt?.toDate?.() || data.createdAt || new Date()
+            };
+          });
+          
+          console.log('Events loaded (simple query):', simpleEventsData.length);
+          setEvents(simpleEventsData);
+        } catch (simpleError) {
+          console.error('Simple events query also failed:', simpleError);
+          setEvents([]);
+        }
+      }
       
+      // Fetch chama settings
+      try {
+        const chamaDoc = await getDoc(doc(db, 'chamas', activeChama.id));
+        if (chamaDoc.exists()) {
+          const chamaData = chamaDoc.data();
+          setChamaSettings(chamaData);
+          console.log('Chama settings loaded:', chamaData);
+        }
+      } catch (settingsError) {
+        console.error('Error fetching chama settings:', settingsError);
+        // Don't set error as settings might not exist
+      }
+
     } catch (error) {
       console.error('Error fetching data:', error);
       setError(`Failed to load data: ${error.message}`);
@@ -377,6 +519,12 @@ const Contributions = () => {
       setLoading(false);
     }
   }, [activeChama?.id, extractMemberName]);
+
+  // Debug events
+  useEffect(() => {
+    console.log('Events state updated:', events);
+    console.log('Active events:', events.filter(e => e.status === 'Active'));
+  }, [events]);
 
   // Load data on component mount and when activeChama changes
   useEffect(() => {
@@ -411,6 +559,16 @@ const Contributions = () => {
     setFormData(prev => ({
       ...prev,
       [name]: value
+    }));
+  };
+
+  // Handle payment method change to auto-clear reference for Cash/Other
+  const handlePaymentMethodChange = (e) => {
+    const { value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      paymentMethod: value,
+      reference: (value === 'Cash' || value === 'Other') ? '' : prev.reference
     }));
   };
 
@@ -521,6 +679,20 @@ const Contributions = () => {
     };
   }, [activeChama?.id, fetchData]);
 
+  // Update form data when chamaSettings loads
+  useEffect(() => {
+    if (chamaSettings?.contributionPeriod) {
+      setFormData(prev => ({
+        ...prev,
+        type: chamaSettings.contributionPeriod
+      }));
+      setBulkFormData(prev => ({
+        ...prev,
+        type: chamaSettings.contributionPeriod
+      }));
+    }
+  }, [chamaSettings]);
+
   // Add a new contribution
   const handleAddContribution = async () => {
     if (!isAdmin) {
@@ -529,8 +701,14 @@ const Contributions = () => {
     }
 
     // Validate form
-    if (!formData.memberId || !formData.amount || !formData.reference) {
-      setError('Please fill all required fields (Member, Amount, Reference)');
+    if (!formData.memberId || !formData.amount) {
+      setError('Please fill all required fields (Member, Amount)');
+      return;
+    }
+
+    // Reference is required for all payment methods except Cash and Other
+    if (!formData.reference && formData.paymentMethod !== 'Cash' && formData.paymentMethod !== 'Other') {
+      setError('Reference number is required for this payment method');
       return;
     }
 
@@ -543,16 +721,50 @@ const Contributions = () => {
       setLoading(true);
       setError('');
       
+      // Check if this is an event contribution
+      const isEventContribution = formData.type.startsWith('Event: ');
+      const eventName = isEventContribution ? formData.type.replace('Event: ', '') : null;
+      const eventId = isEventContribution ? events.find(e => e.name === eventName)?.id : null;
+
       // Add to Firestore
       const docRef = await addDoc(collection(db, 'contributions'), {
         ...formData,
+        reference: formData.reference || null,
         chamaId: activeChama.id,
         chamaName: activeChama.name,
         amount: parseFloat(formData.amount),
         createdAt: serverTimestamp(),
         createdBy: auth.currentUser.uid,
-        createdByName: auth.currentUser.displayName || 'Admin'
+        createdByName: auth.currentUser.displayName || 'Admin',
+        // Add event-specific fields
+        isEventContribution: isEventContribution,
+        eventId: eventId,
+        eventName: eventName
       });
+
+      // If this is an event contribution, also add it to the event's contributions subcollection
+      if (isEventContribution && eventId) {
+        try {
+          await addDoc(collection(db, 'chamas', activeChama.id, 'events', eventId, 'contributions'), {
+            contributionId: docRef.id,
+            memberId: formData.memberId,
+            memberName: formData.memberName,
+            amount: parseFloat(formData.amount),
+            date: formData.date,
+            paymentMethod: formData.paymentMethod,
+            reference: formData.reference || null,
+            status: formData.status,
+            notes: formData.notes,
+            createdAt: serverTimestamp(),
+            createdBy: auth.currentUser.uid,
+            createdByName: auth.currentUser.displayName || 'Admin'
+          });
+          console.log('Event contribution recorded in event subcollection');
+        } catch (eventError) {
+          console.error('Error recording event contribution:', eventError);
+          // Don't fail the main contribution if event recording fails
+        }
+      }
 
       // Update local state
       const newContribution = {
@@ -567,7 +779,7 @@ const Contributions = () => {
       setFormData({
         memberId: '',
         memberName: '',
-        type: 'Monthly',
+        type: chamaSettings?.contributionPeriod || 'Monthly',
         amount: '',
         date: new Date().toISOString().split('T')[0],
         paymentMethod: 'M-Pesa',
@@ -610,6 +822,11 @@ const Contributions = () => {
       // Add each contribution to Firestore
       const newContributions = [];
       
+      // Check if this is an event contribution
+      const isEventContribution = bulkFormData.type.startsWith('Event: ');
+      const eventName = isEventContribution ? bulkFormData.type.replace('Event: ', '') : null;
+      const eventId = isEventContribution ? events.find(e => e.name === eventName)?.id : null;
+
       for (const contrib of bulkFormData.contributions) {
         if (!contrib.amount || !contrib.memberName) {
           continue; // Skip invalid contributions
@@ -625,8 +842,34 @@ const Contributions = () => {
           chamaName: activeChama.name,
           createdAt: serverTimestamp(),
           createdBy: auth.currentUser.uid,
-          createdByName: auth.currentUser.displayName || 'Admin'
+          createdByName: auth.currentUser.displayName || 'Admin',
+          // Add event-specific fields
+          isEventContribution: isEventContribution,
+          eventId: eventId,
+          eventName: eventName
         });
+        
+        // If this is an event contribution, also add it to the event's contributions subcollection
+        if (isEventContribution && eventId) {
+          try {
+            await addDoc(collection(db, 'chamas', activeChama.id, 'events', eventId, 'contributions'), {
+              contributionId: docRef.id,
+              memberId: contrib.memberId,
+              memberName: contrib.memberName,
+              amount: parseFloat(contrib.amount),
+              date: bulkFormData.date,
+              paymentMethod: bulkFormData.paymentMethod,
+              reference: contrib.reference || `BULK-${Date.now()}-${contrib.memberId}`,
+              status: 'Pending',
+              notes: '',
+              createdAt: serverTimestamp(),
+              createdBy: auth.currentUser.uid,
+              createdByName: auth.currentUser.displayName || 'Admin'
+            });
+          } catch (eventError) {
+            console.error('Error recording bulk event contribution:', eventError);
+          }
+        }
         
         newContributions.push({
           id: docRef.id,
@@ -635,7 +878,10 @@ const Contributions = () => {
           memberName: contrib.memberName,
           amount: parseFloat(contrib.amount),
           reference: contrib.reference || `BULK-${Date.now()}-${contrib.memberId}`,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          isEventContribution: isEventContribution,
+          eventId: eventId,
+          eventName: eventName
         });
       }
       
@@ -643,7 +889,7 @@ const Contributions = () => {
       setContributions(prev => [...prev, ...newContributions]);
       setShowBulkModal(false);
       setBulkFormData({
-        type: 'Monthly',
+        type: chamaSettings?.contributionPeriod || 'Monthly',
         date: new Date().toISOString().split('T')[0],
         paymentMethod: 'M-Pesa',
         contributions: []
@@ -1296,11 +1542,11 @@ const Contributions = () => {
                     value={formData.type}
                     onChange={handleInputChange}
                   >
-                    <option value="Monthly">Monthly</option>
-                    <option value="Weekly">Weekly</option>
-                    <option value="Special">Special</option>
-                    <option value="Fine">Fine</option>
-                    <option value="Loan Repayment">Loan Repayment</option>
+                    {getContributionTypeOptions().map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </Form.Select>
                 </Form.Group>
               </Col>
@@ -1342,7 +1588,7 @@ const Contributions = () => {
                   <Form.Select
                     name="paymentMethod"
                     value={formData.paymentMethod}
-                    onChange={handleInputChange}
+                    onChange={handlePaymentMethodChange}
                   >
                     <option value="M-Pesa">M-Pesa</option>
                     <option value="Bank Transfer">Bank Transfer</option>
@@ -1354,15 +1600,29 @@ const Contributions = () => {
               </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Reference Number *</Form.Label>
+                  <Form.Label>
+                    Reference Number {formData.paymentMethod !== 'Cash' && formData.paymentMethod !== 'Other' && '*'}
+                  </Form.Label>
                   <Form.Control
                     type="text"
                     name="reference"
                     value={formData.reference}
                     onChange={handleInputChange}
-                    placeholder="e.g., M-Pesa transaction code"
-                    required
+                    placeholder={
+                      formData.paymentMethod === 'Cash' 
+                        ? "Optional reference" 
+                        : formData.paymentMethod === 'Other' 
+                          ? "Optional reference"
+                          : "e.g., M-Pesa transaction code"
+                    }
+                    required={formData.paymentMethod !== 'Cash' && formData.paymentMethod !== 'Other'}
+                    disabled={formData.paymentMethod === 'Cash' || formData.paymentMethod === 'Other'}
                   />
+                  {(formData.paymentMethod === 'Cash' || formData.paymentMethod === 'Other') && (
+                    <Form.Text className="text-muted">
+                      Reference number is optional for {formData.paymentMethod.toLowerCase()} payments
+                    </Form.Text>
+                  )}
                 </Form.Group>
               </Col>
             </Row>
@@ -1405,7 +1665,7 @@ const Contributions = () => {
           <Button 
             variant="primary" 
             onClick={handleAddContribution}
-            disabled={loading || !formData.memberId || !formData.amount || !formData.reference}
+            disabled={loading || !formData.memberId || !formData.amount || (!formData.reference && formData.paymentMethod !== 'Cash' && formData.paymentMethod !== 'Other')}
           >
             {loading ? (
               <>

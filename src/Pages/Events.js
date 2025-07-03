@@ -79,17 +79,25 @@ const Events = ({ darkMode }) => {
       
       const querySnapshot = await getDocs(eventsQuery);
       
-      const eventsData = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          // Handle date conversion safely
-          date: data.date?.toDate?.()?.toISOString().split('T')[0] || data.date || '',
-          // Handle timestamp conversion safely
-          createdAt: data.createdAt?.toDate?.() || data.createdAt || new Date()
-        };
-      });
+      const eventsData = await Promise.all(
+        querySnapshot.docs.map(async (doc) => {
+          const data = doc.data();
+          const eventId = doc.id;
+          
+          // Calculate actual amount collected from contributions
+          const actualAmountCollected = await getEventContributionTotal(eventId);
+          
+          return {
+            id: eventId,
+            ...data,
+            amountCollected: actualAmountCollected, // Use calculated amount
+            // Handle date conversion safely
+            date: data.date?.toDate?.()?.toISOString().split('T')[0] || data.date || '',
+            // Handle timestamp conversion safely
+            createdAt: data.createdAt?.toDate?.() || data.createdAt || new Date()
+          };
+        })
+      );
       
       setEvents(eventsData);
       
@@ -104,7 +112,50 @@ const Events = ({ darkMode }) => {
     return uuidv4().substring(0, 8);
   };
 
-  // Add new event to the current chama
+  // Function to fetch event contributions
+  const fetchEventContributions = async (eventId) => {
+    try {
+      const contributionsQuery = query(
+        collection(db, 'chamas', activeChama.id, 'events', eventId, 'contributions'),
+        orderBy('createdAt', 'desc')
+      );
+      const contributionsSnapshot = await getDocs(contributionsQuery);
+      
+      const contributionsData = contributionsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      return contributionsData;
+    } catch (error) {
+      console.error('Error fetching event contributions:', error);
+      return [];
+    }
+  };
+
+  // Function to get total contributions for an event
+  const getEventContributionTotal = async (eventId) => {
+    try {
+      const contributions = await fetchEventContributions(eventId);
+      return contributions.reduce((total, contrib) => total + (contrib.amount || 0), 0);
+    } catch (error) {
+      console.error('Error calculating event total:', error);
+      return 0;
+    }
+  };
+
+  // Add this to your event display/modal
+  const [eventContributions, setEventContributions] = useState([]);
+  const [eventTotal, setEventTotal] = useState(0);
+
+  // Function to load event contributions when viewing an event
+  const loadEventContributions = async (eventId) => {
+    const contributions = await fetchEventContributions(eventId);
+    const total = await getEventContributionTotal(eventId);
+    setEventContributions(contributions);
+    setEventTotal(total);
+  };
+
   const handleAddEvent = async () => {
     if (!newEvent.name || !newEvent.location || !newEvent.date) {
       setError('Please fill in all required fields');
@@ -121,20 +172,16 @@ const Events = ({ darkMode }) => {
       const eventData = {
         ...newEvent,
         id: eventId,
-        chamaId: activeChama.id, // Use activeChama.id from context
-        amountCollected: parseFloat(newEvent.amountCollected) || 0,
+        chamaId: activeChama.id,
+        amountCollected: 0, // Always start with 0
         targetAmount: parseFloat(newEvent.targetAmount) || 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
 
-      // Create the event document in the chama's events subcollection
       await setDoc(doc(getEventsCollectionRef(), eventId), eventData);
-      
-      // Refresh the events list
       await fetchEvents();
       
-      // Reset form and close modal
       setShowAddModal(false);
       resetNewEventForm();
       setError('');
@@ -163,18 +210,16 @@ const Events = ({ darkMode }) => {
       const updatedData = {
         name: newEvent.name,
         type: newEvent.type,
-        amountCollected: parseFloat(newEvent.amountCollected) || 0,
         targetAmount: parseFloat(newEvent.targetAmount) || 0,
         date: newEvent.date,
         location: newEvent.location,
         organizer: newEvent.organizer,
         status: newEvent.status,
         updatedAt: serverTimestamp()
+        // Note: amountCollected is not updated here as it's calculated from contributions
       };
 
       await updateDoc(eventRef, updatedData);
-      
-      // Refresh the events list to get updated data
       await fetchEvents();
       
       setShowEditModal(false);
@@ -217,7 +262,6 @@ const Events = ({ darkMode }) => {
     setNewEvent({
       name: event.name || '',
       type: event.type || 'Wedding',
-      amountCollected: event.amountCollected || 0,
       targetAmount: event.targetAmount || 0,
       date: event.date || new Date().toISOString().split('T')[0],
       location: event.location || '',
@@ -233,12 +277,11 @@ const Events = ({ darkMode }) => {
     setShowDeleteModal(true);
   };
 
-  // Reset form helper
+  //Reset form helper  
   const resetNewEventForm = () => {
     setNewEvent({
       name: '',
       type: 'Wedding',
-      amountCollected: 0,
       targetAmount: 0,
       date: new Date().toISOString().split('T')[0],
       location: '',
@@ -632,18 +675,6 @@ const Events = ({ darkMode }) => {
             <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
-                  <Form.Label>Amount Collected (KSh)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={newEvent.amountCollected}
-                    onChange={(e) => setNewEvent({...newEvent, amountCollected: e.target.value})}
-                    min="0"
-                    step="0.01"
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={6}>
-                <Form.Group className="mb-3">
                   <Form.Label>Target Amount (KSh)</Form.Label>
                   <Form.Control
                     type="number"
@@ -753,18 +784,6 @@ const Events = ({ darkMode }) => {
             </Row>
             
             <Row>
-              <Col md={6}>
-                <Form.Group className="mb-3">
-                  <Form.Label>Amount Collected (KSh)</Form.Label>
-                  <Form.Control
-                    type="number"
-                    value={newEvent.amountCollected}
-                    onChange={(e) => setNewEvent({...newEvent, amountCollected: e.target.value})}
-                    min="0"
-                    step="0.01"
-                  />
-                </Form.Group>
-              </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Target Amount (KSh)</Form.Label>
