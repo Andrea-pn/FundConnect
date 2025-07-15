@@ -34,11 +34,20 @@ const Contributions = () => {
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
 
+    // Data states
+  const [contributions, setContributions] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [filteredContributions, setFilteredContributions] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [chamaSettings, setChamaSettings] = useState(null);
+
+  const isAdmin = activeChama?.isAdmin || false;
+
   //Form states
   const [formData, setFormData] = useState({
     memberId: '',
     memberName: '',
-    type: 'Monthly',
+    type: chamaSettings?.period ||'Monthly',
     amount: '',
     date: new Date().toISOString().split('T')[0],
     paymentMethod: 'M-Pesa',
@@ -53,15 +62,6 @@ const Contributions = () => {
     paymentMethod: 'M-Pesa',
     contributions: []
   });
-
-  // Data states
-  const [contributions, setContributions] = useState([]);
-  const [members, setMembers] = useState([]);
-  const [filteredContributions, setFilteredContributions] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [chamaSettings, setChamaSettings] = useState(null);
-
-  const isAdmin = activeChama?.isAdmin || false;
 
   // REPLACE your existing extractMemberName function with this enhanced version
   const extractMemberName = useCallback((memberData) => {
@@ -145,7 +145,7 @@ const Contributions = () => {
     return 'Unknown Member';
   }, []);
 
-  //Gives the contribution type options
+  //Contribution type options
   const getContributionTypeOptions = useCallback(() => {
     console.log('=== GENERATING CONTRIBUTION OPTIONS ===');
     console.log('chamaSettings:', chamaSettings);
@@ -153,13 +153,13 @@ const Contributions = () => {
     
     const options = [];
     
-    // Add the chama's contribution period (e.g., Monthly, Weekly, etc.)
-    if (chamaSettings?.contributionPeriod) {
+    // Add the chama's contribution period (using correct property name)
+    if (chamaSettings?.period) {
       options.push({
-        value: chamaSettings.contributionPeriod,
-        label: chamaSettings.contributionPeriod
+        value: chamaSettings.period,
+        label: chamaSettings.period
       });
-      console.log('Added chama period:', chamaSettings.contributionPeriod);
+      console.log('Added chama period:', chamaSettings.period);
     } else {
       // Default period if not set
       options.push({

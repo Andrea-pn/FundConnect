@@ -2,28 +2,23 @@ import React, { useState, useEffect, useContext } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { 
   Button, 
-  Table, 
-  Modal, 
-  Form, 
-  Alert, 
+  Table,  
+  Form,  
   Card, 
   Row, 
   Col,
   Badge,
   Dropdown
 } from "react-bootstrap";
-import {  
-  FiEdit2, 
+import {   
   FiMoreVertical,
   FiSun,
   FiMoon,
   FiLogOut,
   FiDollarSign,
   FiUser,
-  FiCalendar,
   FiTarget,
   FiPercent,
-  FiSettings
 } from "react-icons/fi";
 import { auth } from '../firebase'; 
 import { signOut } from "firebase/auth";
@@ -33,50 +28,24 @@ import { Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import ListGroup from 'react-bootstrap/ListGroup';
 import { FiSearch } from "react-icons/fi";
+import { useContributionsAnalysis } from '../hooks/useContributionsAnalysis';
+import ContributionsAnalytics from '../components/ContributionsAnalytics';
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { chama, stats, refresh, loading } = useOutletContext();
-  const { activeChama, setActiveChama } = useContext(ChamaContext);
+  const { chama } = useOutletContext();
+  const { activeChama } = useContext(ChamaContext);
   const [darkMode, setDarkMode] = useState(false);
-  const [transactions, setTransactions] = useState([
-    { 
-      id: 1,
-      date: '7/7/2024', 
-      event: "Sam's Wedding", 
-      member: 'Raphael Mutill', 
-      amount: 2000, 
-      paymentMethod: 'Mpesa', 
-      transactionId: 'XMLSLSL123', 
-      mpesaReference: 'N/A', 
-      status: 'pending' 
-    },
-    { 
-      id: 2,
-      date: '7/7/2024', 
-      event: "Mike's Rurado", 
-      member: 'Raphael Mutill', 
-      amount: 15000, 
-      paymentMethod: 'Mpesa', 
-      transactionId: 'LSPSP45678', 
-      mpesaReference: 'N/A', 
-      status: 'pending' 
-    },
-    { 
-      id: 3,
-      date: '7/7/2024', 
-      event: "Sam's Wedding", 
-      member: 'Raphael Mutill', 
-      amount: 20000, 
-      paymentMethod: 'Bank', 
-      transactionId: '12345ABCDE', 
-      mpesaReference: 'N/A', 
-      status: 'completed' 
-    }
-  ]); 
+  
+  const { 
+    analysis, 
+    loading: analysisLoading, 
+    error: analysisError,
+    contributions 
+  } = useContributionsAnalysis(activeChama?.id);
 
   const isAdmin = activeChama?.isAdmin || false;
 
@@ -200,19 +169,93 @@ const AdminDashboard = () => {
   };
 
   // Calculate summary data
-  const moneyIn = transactions
-    .filter(t => t.status === 'completed')
-    .reduce((sum, t) => sum + t.amount, 0);
-  
-  const moneyOut = 20000; // This would come from your data
+  const moneyIn = analysis?.totalAmount || 0;
+  const totalContributions = analysis?.totalContributions || 0;
+  const monthlyGrowth = analysis?.monthlyStats?.growth || 0;
+  const calculateGoal = (chama) => {
+    if (!chama || !chama.targetAmount) return 0;
+    
+    // The goal is simply the target amount for the selected contribution period
+    // This is the total amount the chama aims to collect per period
+    return chama.targetAmount;
+  };
+  const goalAmount = calculateGoal(activeChama || chama);
+  // Helper function to get period text
+  const getPeriodText = (period) => {
+    const periodMap = {
+      daily: 'Daily',
+      weekly: 'Weekly', 
+      monthly: 'Monthly',
+      quarterly: 'Quarterly'
+    };
+    return periodMap[period] || '';
+  };
+   
+  // Calculate goal for the current contribution period
+  const calculatePeriodGoal = (chama) => {
+    if (!chama || !chama.targetAmount) return 0;
+    
+    // The goal is the target amount for the selected contribution period
+    return chama.targetAmount;
+  };
+
+  // Calculate contributions for the current period
+  const calculateCurrentPeriodContributions = (contributions, period) => {
+    if (!contributions || !period) return 0;
+    
+    const now = new Date();
+    let startDate;
+    
+    // Calculate start date based on period
+    switch (period) {
+      case 'daily':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'weekly':
+        const dayOfWeek = now.getDay();
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - dayOfWeek);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'monthly':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'quarterly':
+        const quarter = Math.floor(now.getMonth() / 3);
+        startDate = new Date(now.getFullYear(), quarter * 3, 1);
+        break;
+      default:
+        startDate = new Date(0); // All time if no period
+    }
+    
+    // Filter contributions for current period
+    const periodContributions = contributions.filter(contribution => {
+      const contributionDate = new Date(contribution.date || contribution.createdAt);
+      return contributionDate >= startDate && contributionDate <= now;
+    });
+    
+    // Sum up the amounts
+    return periodContributions.reduce((total, contribution) => {
+      return total + (contribution.amount || 0);
+    }, 0);
+  };
+
+  // Use these calculations in your component
+  const periodGoal = calculatePeriodGoal(activeChama);
+  const currentPeriodContributions = calculateCurrentPeriodContributions(contributions, activeChama?.period);
+  const progressPercentage = periodGoal > 0 ? 
+    Math.min((currentPeriodContributions / periodGoal) * 100, 100) : 0;
+  const moneyOut = 20000; // Keep if you have expense data
   const balance = moneyIn - moneyOut;
+
   const [searchTerm, setSearchTerm] = useState('');
+
   // Filter transactions based on search term
-  const filteredTransactions = transactions.filter(transaction => 
-    transaction.member.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    transaction.event.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    transaction.transactionId.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredContributions = contributions?.filter(contribution => 
+    contribution.memberName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    contribution.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    contribution.id?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
 
 
   return (
@@ -282,91 +325,133 @@ const AdminDashboard = () => {
           <div style={containerStyle}>
           {/* Summary Cards */}
           <Row className="g-3 mb-4">
-              <Col md={3}>
-                <Card style={greenCardStyle}>
-                  <Card.Body className="d-flex flex-column justify-content-between p-3">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">Total Contributions</div>
-                        <div style={iconContainerStyle}>
-                         <FiDollarSign size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
-                        </div>
-                       </div>
-                      <div>
-                        <h3 className="mt-2 mb-1">Ksh {moneyIn.toLocaleString()}</h3>
-                        <div className="text-success d-flex align-items-center" style={{ fontSize: '0.8rem' }}>
-                        <span>▲</span>
-                        <span className="ms-1">23.36% from last month</span>
-                      </div>
-                      </div>
-                  </Card.Body>
-                </Card>
-              </Col>
-
-              <Col md={3}>
-                <Card style={greenCardStyle}>
-                  <Card.Body className="d-flex flex-column justify-content-between p-3">
-                   <div className="d-flex justify-content-between align-items-center mb-2">
-                     <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">Contribution Goal</div>
-                      <div style={iconContainerStyle}>
-                        <FiTarget size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
-                      </div>
-                      </div>
-                       <div>
-                      <h3 className="mt-2 mb-1">Ksh 100,000</h3>
-                      <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="small">
-                     Target amount
+            <Col md={3}>
+              <Card style={greenCardStyle}>
+                <Card.Body className="d-flex flex-column justify-content-between p-3">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">
+                      {activeChama?.period ? 
+                        `${getPeriodText(activeChama.period)} Goal` : 
+                        'Contribution Goal'
+                      }
+                    </div>
+                    <div style={iconContainerStyle}>
+                      <FiTarget size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
                     </div>
                   </div>
-                 </Card.Body>
-               </Card>
-              </Col>
-
-              <Col md={3}>
-                <Card style={greenCardStyle}>
-                  <Card.Body className="d-flex flex-column justify-content-between p-3">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">Remaining to Goal</div>
-                      <div style={iconContainerStyle}>
-                        <FiCalendar size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
-                       </div>
-                      </div>
-                      <div>
-                        <h3 className="mt-2 mb-1">Ksh {(100000 - moneyIn).toLocaleString()}</h3>
-                        <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="small">
-                          {((100000 - moneyIn)/1000).toFixed(0)}k left
-                        </div>
+                  <div>
+                    <h3 className="mt-2 mb-1">
+                      Ksh {periodGoal ? periodGoal.toLocaleString() : '0'}
+                    </h3>
+                    <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="small">
+                      {activeChama?.period ? 
+                        `Target for this ${activeChama.period}` :
+                        'Set your target amount'
+                      }
                     </div>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+
+            <Col md={3}>
+              <Card style={greenCardStyle}>
+                <Card.Body className="d-flex flex-column justify-content-between p-3">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">
+                      {activeChama?.period ? 
+                        `${getPeriodText(activeChama.period)} Collected` : 
+                        'Contributions'
+                      }
+                    </div>
+                    <div style={iconContainerStyle}>
+                      <FiDollarSign size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="mt-2 mb-1">
+                      Ksh {currentPeriodContributions ? currentPeriodContributions.toLocaleString() : '0'}
+                    </h3>
+                    <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="small">
+                      {periodGoal > 0 ? 
+                        `${((currentPeriodContributions / periodGoal) * 100).toFixed(1)}% of target reached` :
+                        `Total for this ${activeChama?.period || 'period'}`
+                      }
+                    </div>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+
+            <Col md={3}>
+              <Card style={greenCardStyle}>
+                <Card.Body className="d-flex flex-column justify-content-between p-3">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">
+                      {activeChama?.period ? 
+                        `${getPeriodText(activeChama.period)} Progress` : 
+                        'Percentage Reached'
+                      }
+                    </div>
+                    <div style={iconContainerStyle}>
+                      <FiPercent size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="mt-2 mb-1">{progressPercentage.toFixed(1)}%</h3>
+                    <div className="progress" style={{ 
+                      height: '6px', 
+                      backgroundColor: darkMode ? '#033a28' : '#e8f5f0',
+                      borderRadius: '3px',
+                      overflow: 'hidden'
+                    }}>
+                      <div 
+                        className="progress-bar" 
+                        role="progressbar" 
+                        style={{ 
+                          width: `${progressPercentage}%`,
+                          backgroundColor: darkMode ? '#33a17c' : '#034a31',
+                          transition: 'width 0.3s ease'
+                        }} 
+                      ></div>
+                    </div>
+                    <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="small mt-1">
+                      {periodGoal > 0 ? 
+                        `Ksh ${currentPeriodContributions.toLocaleString()} of Ksh ${periodGoal.toLocaleString()}` :
+                        'No target set'
+                      }
+                    </div>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+
+            {/* NEW: Detailed Analytics Section */}
+            <Row className="g-3 mb-4">
+              <Col md={12}>
+                <Card style={{
+                  borderRadius: '12px',
+                  border: 'none',
+                  boxShadow: darkMode ? '0 5px 15px rgba(0,0,0,0.2)' : '0 5px 15px rgba(0,0,0,0.08)',
+                  backgroundColor: darkMode ? 'rgba(30, 30, 45, 0.8)' : '#ffffff',
+                  color: colors.textPrimary
+                }}>
+                  <Card.Body>
+                    <Card.Title style={{ color: colors.textPrimary, marginBottom: '20px' }}>
+                      Detailed Analytics
+                    </Card.Title>
+                    <ContributionsAnalytics 
+                      analysis={analysis} 
+                      loading={analysisLoading} 
+                      error={analysisError}
+                      darkMode={darkMode}
+                    />
                   </Card.Body>
                 </Card>
               </Col>
-
-              <Col md={3}>
-                <Card style={greenCardStyle}>
-                  <Card.Body className="d-flex flex-column justify-content-between p-3">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                    <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">Percentage Reached</div>
-                      <div style={iconContainerStyle}>
-                        <FiPercent size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="mt-2 mb-1">{(moneyIn/100000 * 100).toFixed(1)}%</h3>
-                      <div className="progress" style={{ height: '6px', backgroundColor: darkMode ? '#033a28' : '#e8f5f0' }}>
-                        <div 
-                          className="progress-bar" 
-                          role="progressbar" 
-                          style={{ 
-                            width: `${moneyIn/100000 * 100}%`,
-                            backgroundColor: darkMode ? '#33a17c' : '#034a31'
-                          }} 
-                      ></div>
-                     </div>
-                   </div>
-                 </Card.Body>
-               </Card>
-              </Col>
             </Row>
-            
+
             {/* Contribution Types and Recent Activity */}
             <Row className="g-3 mb-4">
                 <Col md={8}>
@@ -386,9 +471,9 @@ const AdminDashboard = () => {
                         {/* Pie Chart - Using react-chartjs-2 */}
                         <Pie
                           data={{
-                            labels: ['Wedding', 'Ruracio', 'Harambee', 'Emergency', 'Other'],
+                            labels: Object.keys(analysis?.contributionsByType || {}),
                             datasets: [{
-                              data: [45, 25, 15, 10, 5],
+                              data: Object.values(analysis?.contributionsByType || {}),
                               backgroundColor: [
                                 '#034a31',  // Dark green
                                 '#33a17c',  // Light green
@@ -433,17 +518,14 @@ const AdminDashboard = () => {
                   height: '100%',
                   backgroundColor: darkMode ? 'rgba(30, 30, 45, 0.8)' : '#ffffff',
                  }}>
-                  <Card.Body>
-                    <Card.Title style={{ color: darkMode ? '#33a17c' : '#034a31', marginBottom: '1rem' }}>
-                      Recent Activity
-                    </Card.Title>
-                    <div style={{ height: '300px', overflowY: 'auto' }}>
-                      <ListGroup as="ol" numbered style={{ 
-                        border: 'none',
-                        '--bs-list-group-bg': 'transparent',
-                        '--bs-list-group-border-color': darkMode ? '#033a28' : '#d1e7dd'
-                      }}>
+                   <Card.Body>
+                     <Card.Title style={{ color: darkMode ? '#33a17c' : '#034a31', marginBottom: '1rem' }}>
+                       Recent Activity
+                     </Card.Title>
+                     <div style={{ height: '300px', overflowY: 'auto' }}>
+                       {analysis?.recentContributions?.slice(0, 5).map((contribution, index) => (
                           <ListGroup.Item 
+                            key={index}
                             as="li"
                             className="d-flex align-items-start py-3"
                             style={{
@@ -454,90 +536,14 @@ const AdminDashboard = () => {
                             <div className="ms-2 me-auto">
                               <div className="d-flex align-items-center" style={{ color: darkMode ? '#33a17c' : '#034a31' }}>
                                 <FiUser className="me-2" size={16} />
-                                <strong>John Doe</strong>
+                                <strong>{contribution.memberName}</strong>
                               </div>
                               <small className="text-muted mt-1">
-                                Made contribution of Ksh 5,000 • 2 mins ago
+                                Contributed Ksh {contribution.amount.toLocaleString()} • {new Date(contribution.date).toLocaleDateString()}
                               </small>
                             </div>
                           </ListGroup.Item>
-
-                          <ListGroup.Item 
-                            as="li"
-                            className="d-flex align-items-start py-3"
-                            style={{
-                              backgroundColor: darkMode ? 'rgba(40, 40, 60, 0.4)' : '#f8f9fa',
-                              borderColor: darkMode ? '#033a28' : '#d1e7dd'
-                            }}
-                          >
-                            <div className="ms-2 me-auto">
-                              <div className="d-flex align-items-center" style={{ color: darkMode ? '#33a17c' : '#034a31' }}>
-                                <FiEdit2 className="me-2" size={16} />
-                                <strong>Admin</strong>
-                              </div>
-                              <small className="text-muted mt-1">
-                                Updated records • 15 mins ago
-                              </small>
-                            </div>
-                          </ListGroup.Item>
-
-                          <ListGroup.Item 
-                            as="li"
-                            className="d-flex align-items-start py-3"
-                            style={{
-                              backgroundColor: darkMode ? 'rgba(40, 40, 60, 0.4)' : '#f8f9fa',
-                              borderColor: darkMode ? '#033a28' : '#d1e7dd'
-                            }}
-                          >
-                            <div className="ms-2 me-auto">
-                              <div className="d-flex align-items-center" style={{ color: darkMode ? '#33a17c' : '#034a31' }}>
-                                <FiCalendar className="me-2" size={16} />
-                                <strong>New Event</strong>
-                              </div>
-                              <small className="text-muted mt-1">
-                                Mary's Wedding • 1 hour ago
-                              </small>
-                            </div>
-                          </ListGroup.Item>
-
-                          <ListGroup.Item 
-                            as="li"
-                            className="d-flex align-items-start py-3"
-                            style={{
-                              backgroundColor: darkMode ? 'rgba(40, 40, 60, 0.4)' : '#f8f9fa',
-                              borderColor: darkMode ? '#033a28' : '#d1e7dd'
-                            }}
-                          >
-                            <div className="ms-2 me-auto">
-                              <div className="d-flex align-items-center" style={{ color: darkMode ? '#33a17c' : '#034a31' }}>
-                                <FiDollarSign className="me-2" size={16} />
-                                <strong>Jane Smith</strong>
-                              </div>
-                              <small className="text-muted mt-1">
-                                Contributed Ksh 10,000 • 3 hours ago
-                              </small>
-                            </div>
-                          </ListGroup.Item>
-
-                          <ListGroup.Item 
-                            as="li"
-                            className="d-flex align-items-start py-3"
-                            style={{
-                              backgroundColor: darkMode ? 'rgba(40, 40, 60, 0.4)' : '#f8f9fa',
-                              borderColor: darkMode ? '#033a28' : '#d1e7dd'
-                            }}
-                          >
-                            <div className="ms-2 me-auto">
-                              <div className="d-flex align-items-center" style={{ color: darkMode ? '#33a17c' : '#034a31' }}>
-                                <FiSettings className="me-2" size={16} />
-                                <strong>System Update</strong>
-                              </div>
-                              <small className="text-muted mt-1">
-                                Settings modified • 5 hours ago
-                              </small>
-                            </div>
-                          </ListGroup.Item>
-                        </ListGroup>
+                        ))}
                       </div>
                     </Card.Body>
                   </Card>
@@ -600,28 +606,23 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((transaction) => (
-                  <tr key={transaction.id} style={{ 
+                {filteredContributions.slice(0, 5).map((contribution) => (
+                  <tr key={contribution.id} style={{ 
                     backgroundColor: darkMode ? 'rgba(40, 40, 60, 0.4)' : 'rgba(249, 249, 249, 0.8)',
                     color: darkMode ? '#e1e1e1' : '#034a31'
                   }}>
-                    <td>{transaction.transactionId}</td>
-                    <td>{transaction.member}</td>
-                    <td>Ksh {transaction.amount.toLocaleString()}</td>
-                    <td>{transaction.date}</td>
-                    <td>{transaction.paymentMethod}</td>
-                    <td>{transaction.event}</td>
+                    <td>{contribution.id}</td>
+                    <td>{contribution.memberName}</td>
+                    <td>Ksh {contribution.amount.toLocaleString()}</td>
+                    <td>{new Date(contribution.date).toLocaleDateString()}</td>
+                    <td>{contribution.paymentMethod || 'N/A'}</td>
+                    <td>{contribution.type}</td>
                     <td className="text-end">
                       <Badge 
-                        bg={transaction.status === 'completed' ? 'success' : 'warning'} 
+                        bg={contribution.status === 'Verified' ? 'success' : contribution.status === 'Pending' ? 'warning' : 'danger'} 
                         className="text-capitalize"
-                        style={{
-                          backgroundColor: transaction.status === 'completed' 
-                            ? darkMode ? '#33a17c' : '#034a31'
-                            : darkMode ? '#d4a017' : '#ffc107'
-                        }}
                       >
-                        {transaction.status}
+                        {contribution.status}
                       </Badge>
                     </td>
                   </tr>
