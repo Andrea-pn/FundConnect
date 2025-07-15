@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useContext, useCallback} from 'react';
 import { 
   Container, Row, Col, Card, Form, Button, 
-  Modal, Badge, Spinner, Alert, Table,
+  Modal, Spinner, Alert, Table,
   InputGroup, Dropdown, ButtonGroup, FormControl
 } from 'react-bootstrap';
 import { 
   FiDollarSign, FiPlus, FiTrash2, 
-  FiCheckCircle, FiXCircle, FiDownload, 
-  FiSearch, FiUser, FiClock, FiUsers, FiPrinter, FiRefreshCw, FiCheck
+  FiCheckCircle, FiDownload, 
+  FiSearch, FiClock, FiUsers, FiPrinter, FiRefreshCw
 } from 'react-icons/fi';
 import { useOutletContext } from 'react-router-dom';
 import { ChamaContext } from '../App';
@@ -17,7 +17,7 @@ import { getAuth } from 'firebase/auth';
 import { toast } from 'react-toastify';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-
+import ContributionsTable from '../components/ContributionsTable';
 
 const Contributions = () => {
   useOutletContext();
@@ -1160,7 +1160,7 @@ const Contributions = () => {
       setLoading(false);
     }
   };
-
+ 
   // Debug function for testing collections
   const testCollections = async () => {
     const collections = [
@@ -1392,110 +1392,19 @@ const Contributions = () => {
         </Card.Body>
       </Card>
 
-      {/* Contributions Table */}
-      <Card className="border-0 shadow-sm">
-        <Card.Body>
-          {filteredContributions.length === 0 ? (
-            <div className="text-center py-5">
-              <FiDollarSign size={48} className="text-muted mb-3" />
-              <h5 className="text-muted">No contributions found</h5>
-              <p className="text-muted">
-                {contributions.length === 0 
-                  ? "No contributions have been recorded yet."
-                  : "No contributions match your current filters."
-                }
-              </p>
-              {isAdmin && contributions.length === 0 && (
-                <Button
-                  variant="primary"
-                  onClick={() => setShowAddModal(true)}
-                  className="mt-3"
-                >
-                  <FiPlus className="me-2" />
-                  Record First Contribution
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="table-responsive">
-              <Table hover>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Member</th>
-                    <th>Type</th>
-                    <th>Amount</th>
-                    <th>Method</th>
-                    <th>Reference</th>
-                    <th>Status</th>
-                    {isAdmin && <th>Actions</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredContributions.map(contribution => (
-                    <tr key={contribution.id}>
-                      <td>{new Date(contribution.date).toLocaleDateString()}</td>
-                      <td>
-                        <div className="d-flex align-items-center">
-                          <FiUser className="me-2 text-muted" />
-                          {contribution.memberName}
-                        </div>
-                      </td>
-                      <td>{contribution.type}</td>
-                      <td className="fw-bold">
-                        Ksh {contribution.amount.toLocaleString()}
-                      </td>
-                      <td>{contribution.paymentMethod}</td>
-                      <td>
-                        <code className="text-muted">{contribution.reference}</code>
-                      </td>
-                      <td>
-                        <Badge bg={statusVariant(contribution.status)}>
-                          {contribution.status}
-                        </Badge>
-                      </td>
-                      {isAdmin && (
-                        <td>
-                          <ButtonGroup size="sm">
-                            {contribution.status === 'Pending' && (
-                              <>
-                                <Button
-                                  variant="outline-success"
-                                  onClick={() => handleStatusChange(contribution.id, 'Verified')}
-                                  title="Verify"
-                                >
-                                  <FiCheck />
-                                </Button>
-                                <Button
-                                  variant="outline-danger"
-                                  onClick={() => handleStatusChange(contribution.id, 'Rejected')}
-                                  title="Reject"
-                                >
-                                  <FiXCircle />
-                                </Button>
-                              </>
-                            )}
-                            <Button
-                              variant="outline-secondary"
-                              onClick={() => {
-                                setReceiptData(contribution);
-                                setShowReceiptModal(true);
-                              }}
-                              title="View Receipt"
-                            >
-                              <FiPrinter />
-                            </Button>
-                          </ButtonGroup>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            </div>
-          )}
-        </Card.Body>
-      </Card>
+      {/*Contributions Table*/}
+      <ContributionsTable 
+        filteredContributions={filteredContributions}
+        chamaSettings={chamaSettings}
+        chamaStartDate={chamaSettings?.startDate || '2024-01-01'}
+        isAdmin={isAdmin}
+        handleStatusChange={handleStatusChange}
+        setReceiptData={setReceiptData}
+        setShowReceiptModal={setShowReceiptModal}
+        setShowAddModal={setShowAddModal}
+        contributions={contributions}
+        statusVariant={statusVariant}
+      />
 
       {/* Add Contribution Modal */}
       <Modal show={showAddModal} onHide={() => setShowAddModal(false)} size="lg">
