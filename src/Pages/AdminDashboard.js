@@ -15,6 +15,7 @@ import {
   FiSun,
   FiMoon,
   FiLogOut,
+  FiFilter,
   FiDollarSign,
   FiUser,
   FiTarget,
@@ -30,6 +31,8 @@ import ListGroup from 'react-bootstrap/ListGroup';
 import { FiSearch } from "react-icons/fi";
 import { useContributionsAnalysis } from '../hooks/useContributionsAnalysis';
 import ContributionsAnalytics from '../components/ContributionsAnalytics';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -39,6 +42,7 @@ const AdminDashboard = () => {
   const { chama } = useOutletContext();
   const { activeChama } = useContext(ChamaContext);
   const [darkMode, setDarkMode] = useState(false);
+  const [loading, setLoading] = useState(true); 
   
   const { 
     analysis, 
@@ -256,7 +260,6 @@ const AdminDashboard = () => {
     contribution.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     contribution.id?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
-
 
   return (
     <div className="admin-dashboard" style={{ 

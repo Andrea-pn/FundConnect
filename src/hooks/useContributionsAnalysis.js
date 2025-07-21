@@ -220,7 +220,7 @@ export const useContributionsAnalysis = (chamaId) => {
     if (!chamaId) return;
     
     try {
-      setLoading(true);
+      setLoading(false);
       setError('');
       
       const contributionsQuery = query(
