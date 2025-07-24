@@ -398,11 +398,9 @@ const Events = ({ darkMode }) => {
   // Main component render
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar darkMode={darkMode} />
       <div style={{ 
         flex: 1, 
         backgroundColor: colors.mainBg,
-        padding: '20px',
         minHeight: '100vh'
       }}>
         <div style={{

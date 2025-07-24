@@ -3,14 +3,19 @@ import {
   Container, Row, Col, Card, Form, Button, 
   Modal, Badge, Spinner, Alert,
   InputGroup, ProgressBar, Tab, Tabs,
-  FormControl, Dropdown, ButtonGroup
+  FormControl, Dropdown, ButtonGroup, Nav
 } from 'react-bootstrap';
 import { 
   FiPlusCircle, FiDollarSign, 
   FiUsers, FiCheckCircle,
   FiStar, FiHome, FiSearch,
-  FiMail, FiUserPlus
+  FiMail, FiUserPlus, FiAlertCircle, FiInfo
 } from 'react-icons/fi';
+import { 
+  PeopleFill,
+  ShieldFill,
+  PersonFill 
+} from 'react-bootstrap-icons';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
@@ -509,18 +514,19 @@ const HomePage = () => {
   );
 
   return (
-    <Container className="py-4">
+    <Container className="py-4" fluid="md">
       {/* Header with Search */}
-      <Row className="mb-4 align-items-center">
+      <Row className="mb-4 align-items-center g-3">
         <Col md={6}>
-          <h2 className="d-flex align-items-center">
-            <FiHome className="me-2" /> My Chamas
-          </h2>
+          <div className="d-flex align-items-center">
+            <FiHome className="text-primary me-2" size={24} />
+            <h1 className="h2 mb-0">My Chamas</h1>
+          </div>
         </Col>
-        <Col md={6} className="mt-2 mt-md-0">
-          <InputGroup>
-            <InputGroup.Text>
-              <FiSearch />
+        <Col md={6}>
+          <InputGroup className="shadow-sm">
+            <InputGroup.Text className="bg-white">
+              <FiSearch className="text-muted" />
             </InputGroup.Text>
             <FormControl
               placeholder="Search all chamas..."
@@ -535,16 +541,18 @@ const HomePage = () => {
                 );
               }}
               onKeyPress={(e) => e.key === 'Enter' && searchChamas()}
+              className="border-start-0"
             />
             <Button 
               variant="primary" 
               onClick={searchChamas}
               disabled={!searchTerm.trim() || isSearching}
+              className="px-3"
             >
               {isSearching ? (
-                <Spinner as="span" size="sm" animation="border" />
+                <Spinner as="span" size="sm" animation="border" role="status" />
               ) : (
-                'Search'
+                <span>Search</span>
               )}
             </Button>
           </InputGroup>
@@ -553,22 +561,25 @@ const HomePage = () => {
 
       {/* Chama Selector and Create Button */}
       {!searchTerm && userChamas.length > 0 && (
-        <div className="d-flex justify-content-between align-items-center mb-4">
+        <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
           <Dropdown as={ButtonGroup}>
-            <Dropdown.Toggle variant="outline-primary">
-              {activeChama ? activeChama.name : 'Select Chama'}
+            <Dropdown.Toggle variant="outline-primary" className="d-flex align-items-center">
+              <span className="me-2">
+                {activeChama ? activeChama.name : 'Select Chama'}
+              </span>
               {activeChama?.isAdmin && (
-                <FiStar size={14} className="ms-2 text-warning" />
+                <FiStar size={16} className="text-warning" />
               )}
             </Dropdown.Toggle>
-            <Dropdown.Menu>
+            <Dropdown.Menu className="shadow-sm">
               {userChamas.map(chama => (
                 <Dropdown.Item 
                   key={chama.id} 
                   onClick={() => navigateToChama(chama.id)}
                   active={activeChama?.id === chama.id}
+                  className="d-flex align-items-center"
                 >
-                  {chama.name}
+                  <span className="flex-grow-1">{chama.name}</span>
                   {chama.isAdmin && (
                     <FiStar size={14} className="ms-2 text-warning" />
                   )}
@@ -580,8 +591,9 @@ const HomePage = () => {
           <Button 
             variant="primary"
             onClick={() => setShowCreateModal(true)}
+            className="d-flex align-items-center"
           >
-            <FiPlusCircle className="me-2" />
+            <FiPlusCircle className="me-2" size={18} />
             Create New Chama
           </Button>
         </div>
@@ -589,26 +601,30 @@ const HomePage = () => {
 
       {/* Error Alert */}
       {error && (
-        <Alert variant="danger" onClose={() => setError(null)} dismissible className="mb-4">
-          {error}
+        <Alert variant="danger" onClose={() => setError(null)} dismissible className="mb-4 shadow-sm">
+          <div className="d-flex align-items-center">
+            <FiAlertCircle className="me-2" size={20} />
+            <span>{error}</span>
+          </div>
         </Alert>
       )}
 
       {/* Search Results */}
       {searchTerm && (
         <div className="mb-4">
-          <h5>Search Results for "{searchTerm}"</h5>
+          <h3 className="h5 mb-3">Search Results for "{searchTerm}"</h3>
           {isSearching ? (
-            <div className="text-center py-3">
-              <Spinner animation="border" />
-              <p className="mt-2">Searching...</p>
+            <div className="text-center py-4">
+              <Spinner animation="border" role="status" />
+              <p className="mt-2 text-muted">Searching chamas...</p>
             </div>
           ) : searchResults.length > 0 ? (
-            <Row>
+            <Row className="g-4">
               {searchResults.map(renderChamaCard)}
             </Row>
           ) : (
-            <Alert variant="info" className="text-center">
+            <Alert variant="info" className="text-center shadow-sm">
+              <FiInfo className="me-2" size={18} />
               No chamas found matching "<strong>{searchTerm}</strong>"
             </Alert>
           )}
@@ -622,6 +638,7 @@ const HomePage = () => {
             activeKey={activeTab}
             onSelect={(k) => setActiveTab(k)}
             className="mb-4"
+            id="chama-tabs"
           >
             <Tab eventKey="all" title={`All (${userChamas.length})`} />
             <Tab eventKey="admin" title={`Admin (${adminChamas.length})`} />
@@ -633,19 +650,20 @@ const HomePage = () => {
               <Spinner animation="border" role="status">
                 <span className="visually-hidden">Loading...</span>
               </Spinner>
-              <p className="mt-2">Loading your chamas...</p>
+              <p className="mt-3 text-muted">Loading your chamas...</p>
             </div>
           ) : userChamas.length === 0 ? (
-            <Card className="text-center py-5">
-              <Card.Body>
+            <Card className="text-center py-5 border-0 shadow-sm">
+              <Card.Body className="px-4 py-5">
                 <FiUsers size={48} className="text-muted mb-3" />
-                <h5>No Chamas Found</h5>
+                <h4 className="mb-2">No Chamas Found</h4>
                 <p className="text-muted mb-4">
                   You haven't joined any chamas yet. Create or join one to get started.
                 </p>
                 <Button 
                   variant="primary"
                   onClick={() => setShowCreateModal(true)}
+                  size="lg"
                 >
                   <FiPlusCircle className="me-2" />
                   Create Your First Chama
@@ -653,7 +671,7 @@ const HomePage = () => {
               </Card.Body>
             </Card>
           ) : (
-            <Row>
+            <Row className="g-4">
               {activeTab === 'all' && userChamas.map(renderChamaCard)}
               {activeTab === 'admin' && adminChamas.map(renderChamaCard)}
               {activeTab === 'member' && memberChamas.map(renderChamaCard)}
@@ -663,12 +681,12 @@ const HomePage = () => {
       )}
 
       {/* Chama Creation Modal */}
-      <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Create New Chama</Modal.Title>
+      <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} centered>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="h5">Create New Chama</Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleCreateChama}>
-          <Modal.Body>
+          <Modal.Body className="pt-0">
             <Form.Group className="mb-3">
               <Form.Label>Chama Name</Form.Label>
               <Form.Control
@@ -678,10 +696,11 @@ const HomePage = () => {
                 onChange={handleChamaChange}
                 placeholder="e.g. Umoja Group"
                 required
+                autoFocus
               />
             </Form.Group>
 
-            <Row className="mb-3">
+            <Row className="mb-3 g-3">
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Target Amount (Ksh)</Form.Label>
@@ -726,6 +745,7 @@ const HomePage = () => {
                 onChange={handleChamaChange}
                 required
               >
+                <option value="">Select period</option>
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
@@ -733,15 +753,15 @@ const HomePage = () => {
               </Form.Select>
             </Form.Group>
           </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
+          <Modal.Footer className="border-0">
+            <Button variant="outline-secondary" onClick={() => setShowCreateModal(false)}>
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={isCreating}>
               {isCreating ? (
                 <>
-                  <Spinner as="span" size="sm" animation="border" />
-                  <span className="ms-2">Creating...</span>
+                  <Spinner as="span" size="sm" animation="border" className="me-2" />
+                  Creating...
                 </>
               ) : (
                 <>
@@ -755,12 +775,14 @@ const HomePage = () => {
       </Modal>
 
       {/* Invite Member Modal */}
-      <Modal show={showInviteModal} onHide={() => setShowInviteModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Invite Member to {currentChama?.name}</Modal.Title>
+      <Modal show={showInviteModal} onHide={() => setShowInviteModal(false)} centered>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="h5">
+            Invite Member to {currentChama?.name}
+          </Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleInviteMember}>
-          <Modal.Body>
+          <Modal.Body className="pt-0">
             <Form.Group className="mb-3">
               <Form.Label>Member Email</Form.Label>
               <Form.Control
@@ -769,25 +791,24 @@ const HomePage = () => {
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 required
+                autoFocus
               />
               <Form.Text className="text-muted">
-                User must have an existing account with this email
+                <small>User must have an existing account with this email</small>
               </Form.Text>
             </Form.Group>
           </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowInviteModal(false)}>
+          <Modal.Footer className="border-0">
+            <Button variant="outline-secondary" onClick={() => setShowInviteModal(false)}>
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={isInviting || !inviteEmail}>
               {isInviting ? (
-                <Spinner as="span" size="sm" animation="border" />
+                <Spinner as="span" size="sm" animation="border" className="me-2" />
               ) : (
-                <>
-                  <FiMail className="me-2" />
-                  Send Invitation
-                </>
+                <FiMail className="me-2" />
               )}
+              Send Invitation
             </Button>
           </Modal.Footer>
         </Form>
