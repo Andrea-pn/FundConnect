@@ -5,6 +5,8 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import './style.css';
 import { Typewriter } from 'react-simple-typewriter';
+import logo3 from '../components/logo3.png';
+import logo2 from '../components/logo2.png';
 
 const teamMembers = [
     {
@@ -81,7 +83,25 @@ const LandingPage = () => {
     <>
       <div className="navbar-background"> {/* Wrapper div for background */}
         <Navbar bg="primary" variant="dark" expand="lg" className="px-4">
-          <Navbar.Brand href="#">FundConnect</Navbar.Brand>
+          <Navbar.Brand href="#" className="d-flex align-items-center">
+            <img 
+              src={logo2}
+              alt="FundConnect Logo" 
+              style={{
+                height: '30px',
+                width: 'auto',
+                display: 'block'
+              }}
+            />
+            <span style={{ 
+              fontWeight: 'bold', 
+              fontSize: '1.1rem',
+              whiteSpace: 'nowrap',
+              marginLeft: '8px'
+            }}>
+              FundConnect
+            </span>
+          </Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
             <Nav className="ms-auto">
@@ -102,60 +122,68 @@ const LandingPage = () => {
           backgroundPosition: 'center',
         }}
       >
-      <h1
-      style={{ color: "white", animation: "fadeZoomIn 1.2s ease-out forwards" }}
-      className="fundconnect-heading"
-    >
-      FundConnect
-    </h1>
-
-         <p style={{ color: "white", fontSize: '1.2rem', minHeight: '60px' }}>
-    <Typewriter
-      words={[
-            'Empowering chama groups with seamless financial services and efficient contribution management.'
-      ]}
-      loop={1}
-      cursor
-      cursorStyle="|"
-      typeSpeed={50}
-      deleteSpeed={80}
-      delaySpeed={500}
-    />
-  </p>
-
-
-        {/* Updated Button to navigate to /signin */}
-        <Button className="Hbutton" onClick={() => navigate('/signin')}>Get Started</Button>
+        <img 
+          src={logo3}
+          alt="FundConnect Logo" 
+          style={{
+            height: '100px',
+            width: 'auto',
+            marginBottom: '20px',
+            animation: "fadeZoomIn 1s ease-out forwards"
+          }}
+        />      
+        <h1
+          style={{ color: "white", animation: "fadeZoomIn 1.2s ease-out forwards" }}
+          className="fundconnect-heading"
+        >
+          FundConnect
+        </h1>
+          
+        <p style={{ color: "white", fontSize: '1.2rem', minHeight: '60px' }}>
+        <Typewriter
+          words={[
+                'Empowering chama groups with seamless financial services and efficient contribution management.'
+          ]}
+          loop={1}
+          cursor
+          cursorStyle="|"
+          typeSpeed={50}
+          deleteSpeed={80}
+          delaySpeed={500}
+        />
+        </p>
+          {/* Updated Button to navigate to /signin */}
+          <Button className="Hbutton" onClick={() => navigate('/signin')}>Get Started</Button>
       </Container>
 
-    <Container fluid className="py-5 animate-on-scroll" style={{ 
-  background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-  position: 'relative',
-  overflow: 'hidden'
-}}>
-  {/* Background decorative elements */}
-  <div style={{
-    position: 'absolute',
-    top: '-50px',
-    right: '-50px',
-    width: '200px',
-    height: '200px',
-    background: 'linear-gradient(45deg, #10b981, #059669)',
-    borderRadius: '50%',
-    opacity: '0.1',
-    zIndex: '1'
-  }}></div>
-  <div style={{
-    position: 'absolute',
-    bottom: '-30px',
-    left: '-30px',
-    width: '150px',
-    height: '150px',
-    background: 'linear-gradient(45deg, #3b82f6, #2563eb)',
-    borderRadius: '50%',
-    opacity: '0.1',
-    zIndex: '1'
-  }}></div>
+      <Container fluid className="py-5 animate-on-scroll" style={{ 
+        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+      {/* Background decorative elements */}
+      <div style={{
+        position: 'absolute',
+        top: '-50px',
+        right: '-50px',
+        width: '200px',
+        height: '200px',
+        background: 'linear-gradient(45deg, #10b981, #059669)',
+        borderRadius: '50%',
+        opacity: '0.1',
+        zIndex: '1'
+      }}></div>
+      <div style={{
+        position: 'absolute',
+        bottom: '-30px',
+        left: '-30px',
+        width: '150px',
+        height: '150px',
+        background: 'linear-gradient(45deg, #3b82f6, #2563eb)',
+        borderRadius: '50%',
+        opacity: '0.1',
+        zIndex: '1'
+      }}></div>
   
   <Row className="justify-content-center position-relative" style={{ zIndex: '2' }}>
     <Col lg={10} xl={8} className="text-center">

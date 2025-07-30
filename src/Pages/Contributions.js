@@ -193,6 +193,55 @@ const Contributions = () => {
     return options;
   }, [chamaSettings, events]);
 
+  // Add this to your Contributions page component
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      // Validate required fields
+      if (!formData.amount || !formData.type || !formData.date) {
+        alert('Please fill in all required fields');
+        return;
+      }
+
+      // Check if we have an active chama
+      if (!activeChama?.id) {
+        alert('No active chama selected. Please select a chama first.');
+        return;
+      }
+
+      const isPeriodicContribution = chamaSettings?.period && formData.type === chamaSettings.period;
+      
+      const contributionData = {
+        ...formData,
+        type: isPeriodicContribution ? 'Regular Contribution' : formData.type,
+        period: isPeriodicContribution ? chamaSettings.period : null,
+        chamaId: activeChama.id, // Use activeChama.id instead of selectedChamaId
+        chamaName: activeChama.name, // Optional: store chama name for easier querying
+        timestamp: serverTimestamp(),
+        createdAt: new Date().toISOString(),
+      };
+      
+      console.log('Saving contribution:', contributionData);
+      
+      await addDoc(collection(db, 'contributions'), contributionData);
+      
+      alert('Contribution saved successfully!');
+      
+      // Reset form
+      setFormData({
+        type: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        description: '',
+      });
+      
+    } catch (error) {
+      console.error('Error saving contribution:', error);
+      alert('Error saving contribution. Please try again.');
+    }
+  };
+
 
   // Enhanced data fetching function that mimics the Members component approach
   const fetchData = useCallback(async () => {

@@ -52,11 +52,31 @@ export const useContributionsAnalysis = (chamaId) => {
     
     // Group by type (handle missing type field)
     const contributionsByType = contributionsData.reduce((acc, c) => {
+      const amount = c.amount || 0;
       const type = c.type || 'Unknown';
-      acc[type] = (acc[type] || 0) + c.amount;
+      
+      // Keep all contribution types separate (including individual events)
+      acc[type] = (acc[type] || 0) + amount;
+      
       return acc;
     }, {});
+
+   const contributionsByTypeGrouped = contributionsData.reduce((acc, c) => {
+    const amount = c.amount || 0;
+    const type = c.type || 'Unknown';
     
+    // Check if this is an event contribution (starts with "Event:")
+    if (type.startsWith('Event:')) {
+      // Group all event contributions under a single "Events" category
+      acc['Events'] = (acc['Events'] || 0) + amount;
+    } else {
+      // Keep other contribution types as they are
+      acc[type] = (acc[type] || 0) + amount;
+    }
+    
+     return acc;
+    }, {});
+
     // Group by status (handle missing status field)
     const contributionsByStatus = contributionsData.reduce((acc, c) => {
       const status = c.status || 'Unknown';
@@ -140,7 +160,8 @@ export const useContributionsAnalysis = (chamaId) => {
       totalContributions,
       totalAmount,
       monthlyTrend,
-      contributionsByType,
+      contributionsByType, // This will have individual events
+      contributionsByTypeGrouped, // This will have events grouped
       contributionsByStatus,
       topContributors,
       recentContributions,

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Container, Row, Col, Card, Form, Button, 
   Modal, Badge, Spinner, Alert,
-  InputGroup, ProgressBar, Tab, Tabs,
+  InputGroup, ProgressBar,
   FormControl, Dropdown, ButtonGroup, Nav
 } from 'react-bootstrap';
 import { 
@@ -11,16 +11,12 @@ import {
   FiStar, FiHome, FiSearch,
   FiMail, FiUserPlus, FiAlertCircle, FiInfo
 } from 'react-icons/fi';
-import { 
-  PeopleFill,
-  ShieldFill,
-  PersonFill 
-} from 'react-bootstrap-icons';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import * as Tabs from '@radix-ui/react-tabs';
 
 const HomePage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -633,51 +629,83 @@ const HomePage = () => {
 
       {/* My Chamas Section (only shown when not searching) */}
       {!searchTerm && (
-        <>
-          <Tabs
-            activeKey={activeTab}
-            onSelect={(k) => setActiveTab(k)}
-            className="mb-4"
-            id="chama-tabs"
-          >
-            <Tab eventKey="all" title={`All (${userChamas.length})`} />
-            <Tab eventKey="admin" title={`Admin (${adminChamas.length})`} />
-            <Tab eventKey="member" title={`Member (${memberChamas.length})`} />
-          </Tabs>
+        <Tabs.Root 
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="mb-4"
+        >
+          {/* Tab List - Styled to match Bootstrap */}
+          <Tabs.List className="nav nav-tabs mb-3">
+            <Tabs.Trigger 
+              value="all" 
+              className={`nav-link ${activeTab === 'all' ? 'active' : ''}`}
+            >
+              All ({userChamas.length})
+            </Tabs.Trigger>
+            <Tabs.Trigger 
+              value="admin" 
+              className={`nav-link ${activeTab === 'admin' ? 'active' : ''}`}
+            >
+              Admin ({adminChamas.length})
+            </Tabs.Trigger>
+            <Tabs.Trigger 
+              value="member" 
+              className={`nav-link ${activeTab === 'member' ? 'active' : ''}`}
+            >
+              Member ({memberChamas.length})
+            </Tabs.Trigger>
+          </Tabs.List>
 
+          {/* Tab Content with proper spacing and animations */}
           {loadingChamas ? (
-            <div className="text-center py-5">
-              <Spinner animation="border" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </Spinner>
-              <p className="mt-3 text-muted">Loading your chamas...</p>
-            </div>
+            <Tabs.Content value={activeTab} className="pt-2">
+              <div className="text-center py-5">
+                <Spinner animation="border" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </Spinner>
+                <p className="mt-3 text-muted">Loading your chamas...</p>
+              </div>
+            </Tabs.Content>
           ) : userChamas.length === 0 ? (
-            <Card className="text-center py-5 border-0 shadow-sm">
-              <Card.Body className="px-4 py-5">
-                <FiUsers size={48} className="text-muted mb-3" />
-                <h4 className="mb-2">No Chamas Found</h4>
-                <p className="text-muted mb-4">
-                  You haven't joined any chamas yet. Create or join one to get started.
-                </p>
-                <Button 
-                  variant="primary"
-                  onClick={() => setShowCreateModal(true)}
-                  size="lg"
-                >
-                  <FiPlusCircle className="me-2" />
-                  Create Your First Chama
-                </Button>
-              </Card.Body>
-            </Card>
+            <Tabs.Content value={activeTab} className="pt-2">
+              <Card className="text-center py-5 border-0 shadow-sm">
+                <Card.Body className="px-4 py-5">
+                  <FiUsers size={48} className="text-muted mb-3" />
+                  <h4 className="mb-2">No Chamas Found</h4>
+                  <p className="text-muted mb-4">
+                    You haven't joined any chamas yet. Create or join one to get started.
+                  </p>
+                  <Button 
+                    variant="primary"
+                    onClick={() => setShowCreateModal(true)}
+                    size="lg"
+                  >
+                    <FiPlusCircle className="me-2" />
+                    Create Your First Chama
+                  </Button>
+                </Card.Body>
+              </Card>
+            </Tabs.Content>
           ) : (
-            <Row className="g-4">
-              {activeTab === 'all' && userChamas.map(renderChamaCard)}
-              {activeTab === 'admin' && adminChamas.map(renderChamaCard)}
-              {activeTab === 'member' && memberChamas.map(renderChamaCard)}
-            </Row>
+            <>
+              <Tabs.Content value="all" className="pt-2">
+                <Row className="g-4">
+                  {userChamas.map(renderChamaCard)}
+                </Row>
+              </Tabs.Content>
+              <Tabs.Content value="admin" className="pt-2">
+                <Row className="g-4">
+                  {adminChamas.map(renderChamaCard)}
+                </Row>
+              </Tabs.Content>
+              <Tabs.Content value="member" className="pt-2">
+                <Row className="g-4">
+                  {memberChamas.map(renderChamaCard)}
+                </Row>
+              </Tabs.Content>
+            </>
           )}
-        </>
+        </Tabs.Root>
       )}
 
       {/* Chama Creation Modal */}

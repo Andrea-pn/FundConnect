@@ -15,7 +15,7 @@ import {
   FiSun,
   FiMoon,
   FiLogOut,
-  FiFilter,
+  FiMinus,
   FiDollarSign,
   FiUser,
   FiTarget,
@@ -334,6 +334,38 @@ const AdminDashboard = () => {
                   <div className="d-flex justify-content-between align-items-center mb-2">
                     <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">
                       {activeChama?.period ? 
+                        `Total ${getPeriodText(activeChama.period)} Contributions` : 
+                        'Total Contributions'
+                      }
+                    </div>
+                    <div style={iconContainerStyle}>
+                      <FiDollarSign size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
+                    </div>
+                    <div style={iconContainerStyle}>
+                      <FiTarget size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="mt-2 mb-1">
+                      Ksh {currentPeriodContributions ? currentPeriodContributions.toLocaleString() : '0'}
+                    </h3>
+                    <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="small">
+                      {activeChama?.period ? 
+                        `Collected this ${activeChama.period}` :
+                        'Total collected'
+                      }
+                    </div>
+                  </div>
+                </Card.Body>
+              </Card>
+            </Col>
+
+            <Col md={3}>
+              <Card style={greenCardStyle}>
+                <Card.Body className="d-flex flex-column justify-content-between p-3">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">
+                      {activeChama?.period ? 
                         `${getPeriodText(activeChama.period)} Goal` : 
                         'Contribution Goal'
                       }
@@ -363,22 +395,22 @@ const AdminDashboard = () => {
                   <div className="d-flex justify-content-between align-items-center mb-2">
                     <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="h6 mb-0">
                       {activeChama?.period ? 
-                        `${getPeriodText(activeChama.period)} Collected` : 
-                        'Contributions'
+                        `${getPeriodText(activeChama.period)} Remaining` : 
+                        'Amount Remaining'
                       }
                     </div>
                     <div style={iconContainerStyle}>
-                      <FiDollarSign size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
+                      <FiMinus size={20} style={{ color: darkMode ? '#33a17c' : '#034a31' }} />
                     </div>
                   </div>
                   <div>
                     <h3 className="mt-2 mb-1">
-                      Ksh {currentPeriodContributions ? currentPeriodContributions.toLocaleString() : '0'}
+                      Ksh {(periodGoal && currentPeriodContributions) ? Math.max(0, periodGoal - currentPeriodContributions).toLocaleString() : periodGoal?.toLocaleString() || '0'}
                     </h3>
                     <div style={{ color: darkMode ? '#aaa' : '#33a17c' }} className="small">
                       {periodGoal > 0 ? 
-                        `${((currentPeriodContributions / periodGoal) * 100).toFixed(1)}% of target reached` :
-                        `Total for this ${activeChama?.period || 'period'}`
+                        (periodGoal > currentPeriodContributions ? 'Still needed to reach goal' : 'Goal exceeded!') :
+                        'Set a goal to see remaining amount'
                       }
                     </div>
                   </div>
@@ -456,7 +488,7 @@ const AdminDashboard = () => {
             </Row>
 
             {/* Contribution Types and Recent Activity */}
-            <Row className="g-3 mb-4">
+             <Row className="g-3 mb-4">
                 <Col md={8}>
                   <Card style={{
                     borderRadius: '12px',
@@ -474,16 +506,20 @@ const AdminDashboard = () => {
                         {/* Pie Chart - Using react-chartjs-2 */}
                         <Pie
                           data={{
-                            labels: Object.keys(analysis?.contributionsByType || {}),
-                            datasets: [{
-                              data: Object.values(analysis?.contributionsByType || {}),
-                              backgroundColor: [
-                                '#034a31',  // Dark green
-                                '#33a17c',  // Light green
-                                '#5cb85c',  // Medium green
-                                '#8fd19e',  // Pale green
-                                '#c8e6c9'   // Very pale green
-                              ],
+                          labels: Object.keys(analysis?.contributionsByType || {})
+                            .filter(key => key.startsWith('Event:'))
+                            .map(key => key.replace('Event:', '')), // Remove "Event:" prefix for cleaner labels
+                          datasets: [{
+                            data: Object.keys(analysis?.contributionsByType || {})
+                              .filter(key => key.startsWith('Event:'))
+                              .map(key => analysis.contributionsByType[key]),
+                            backgroundColor: [
+                              '#034a31',  // Dark green
+                              '#33a17c',  // Light green
+                              '#5cb85c',  // Medium green
+                              '#8fd19e',  // Pale green
+                              '#c8e6c9'   // Very pale green
+                            ],
                             borderColor: darkMode ? '#222233' : '#ffffff',
                             borderWidth: 2
                           }]

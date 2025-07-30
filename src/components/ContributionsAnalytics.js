@@ -29,6 +29,7 @@ const ContributionsAnalytics = ({ analysis, loading, error }) => {
     totalAmount,
     monthlyTrend,
     contributionsByType,
+    contributionsByTypeGrouped, // Add this line
     contributionsByStatus,
     topContributors,
     recentContributions,
@@ -39,7 +40,7 @@ const ContributionsAnalytics = ({ analysis, loading, error }) => {
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
   // Prepare pie chart data
-  const pieChartData = Object.entries(contributionsByType).map(([type, amount]) => ({
+  const pieChartData = Object.entries(contributionsByTypeGrouped || {}).map(([type, amount]) => ({
     name: type,
     value: amount
   }));
