@@ -314,3 +314,33 @@ html, body {
     }
   }
   
+  /* Green theme overrides */
+  .btn-primary {
+    background-color: #33a17c;
+    border-color: #33a17c;
+  }
+
+  .btn-primary:hover {
+    background-color: #034a31;
+    border-color: #034a31;
+  }
+
+  .bg-primary {
+    background-color: #33a17c !important;
+  }
+
+  .text-primary {
+    color: #33a17c !important;
+  }
+
+  /* Dark mode adjustments */
+  [data-theme="dark"] .btn-primary {
+    background-color: transparent;
+    border-color: #33a17c;
+    color: #33a17c;
+  }
+
+  [data-theme="dark"] .btn-primary:hover {
+    background-color: #033a21;
+    border-color: #33a17c;
+  }

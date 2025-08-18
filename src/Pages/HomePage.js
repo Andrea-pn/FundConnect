@@ -2,20 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { 
   Container, Row, Col, Card, Form, Button, 
   Modal, Badge, Spinner, Alert,
-  InputGroup, ProgressBar, Tab, Tabs,
-  FormControl, Dropdown, ButtonGroup
+  InputGroup, ProgressBar,
+  FormControl, Dropdown, ButtonGroup, Nav
 } from 'react-bootstrap';
 import { 
   FiPlusCircle, FiDollarSign, 
   FiUsers, FiCheckCircle,
   FiStar, FiHome, FiSearch,
-  FiMail, FiUserPlus
+  FiMail, FiUserPlus, FiAlertCircle, FiInfo
 } from 'react-icons/fi';
 import { db } from '../firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import * as Tabs from '@radix-ui/react-tabs';
 
 const HomePage = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -163,174 +164,159 @@ const HomePage = () => {
     }
   };
 
-const handleInviteMember = async (e) => {
-  e.preventDefault();
-  setIsInviting(true);
+  const handleInviteMember = async (e) => {
+    e.preventDefault();
+    setIsInviting(true);
 
-  try {
-    // ===== VALIDATION SECTION =====
-    console.log("=== Starting invitation process ===");
-    
-    // Validate user is logged in
-    if (!user || !user.uid) {
-      toast.error("You must be logged in to send invitations");
-      return;
-    }
-
-    // Validate chama is selected
-    if (!currentChama || !currentChama.id) {
-      toast.error("No chama selected");
-      return;
-    }
-
-    // Validate email is provided
-    if (!inviteEmail || !inviteEmail.trim()) {
-      toast.error("Please enter an email address");
-      return;
-    }
-
-    // ===== VERIFY ADMIN STATUS =====
-    const userMembershipsQuery = query(
-      collection(db, 'memberships'),
-      where('userId', '==', user.uid),
-      where('chamaId', '==', currentChama.id)
-    );
-    const userMembershipSnapshot = await getDocs(userMembershipsQuery);
-    
-    if (userMembershipSnapshot.empty) {
-      toast.error("You are not a member of this chama");
-      return;
-    }
-    
-    const userMembership = userMembershipSnapshot.docs[0].data();
-    
-    if (userMembership.role !== 'admin') {
-      toast.error("You must be an admin to invite members");
-      return;
-    }
-
-    // ===== FIND USER TO INVITE =====
-    const usersRef = collection(db, 'users');
-    const userQuery = query(usersRef, where('email', '==', inviteEmail.trim()));
-    const userQuerySnapshot = await getDocs(userQuery);
-  
-    if (userQuerySnapshot.empty) {
-      toast.error("User with this email not found");
-      return;
-    }
-  
-    const userToInvite = userQuerySnapshot.docs[0].data();
-    console.log("Found user to invite:", userToInvite);
-
-    // ===== CHECK FOR EXISTING MEMBERSHIP =====
-    const membershipsRef = collection(db, 'memberships');
-    const membershipQuery = query(
-      membershipsRef,
-      where('chamaId', '==', currentChama.id),
-      where('userId', '==', userToInvite.uid)
-    );
-    const membershipSnapshot = await getDocs(membershipQuery);
-  
-    if (!membershipSnapshot.empty) {
-      toast.warning("User is already a member of this chama");
-      return;
-    }
-
-    // ===== CHECK FOR PENDING INVITATIONS =====
-    const invitationsRef = collection(db, 'invitations');
-    const invitationQuery = query(
-      invitationsRef,
-      where('chamaId', '==', currentChama.id),
-      where('invitedUserId', '==', userToInvite.uid),
-      where('status', '==', 'pending')
-    );
-    const invitationSnapshot = await getDocs(invitationQuery);
-  
-    if (!invitationSnapshot.empty) {
-      toast.info("Invitation already sent to this user");
-      return;
-    }
-
-    // ===== CREATE MEMBERSHIP RECORD =====
-    const membershipData = {
-      userId: userToInvite.uid,
-      chamaId: currentChama.id,
-      chamaName: currentChama.name,
-      name: userToInvite.displayName || inviteEmail.split('@')[0],
-      email: inviteEmail.trim(),
-      phone: userToInvite.phoneNumber || '',
-      role: 'member',
-      status: 'pending',
-      joinDate: serverTimestamp(),
-      createdAt: serverTimestamp(),
-      createdBy: user.uid,
-      updatedAt: serverTimestamp()
-    };
-
-    console.log("Creating membership with data:", membershipData);
-    const membershipRef = await addDoc(collection(db, 'memberships'), membershipData);
-    console.log("Membership created with ID:", membershipRef.id);
-
-    // ===== CREATE INVITATION RECORD =====
-    const invitationData = {
-      chamaId: currentChama.id,
-      chamaName: currentChama.name,
-      invitedUserId: userToInvite.uid,
-      invitedUserEmail: inviteEmail.trim(),
-      inviterUserId: user.uid,
-      inviterEmail: user.email,
-      membershipId: membershipRef.id, // Link to membership
-      status: 'pending',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      inviterName: user.displayName || user.email || 'Admin'
-    };
-
-    console.log("Creating invitation with data:", invitationData);
-    const inviteDocRef = await addDoc(collection(db, 'invitations'), invitationData);
-    console.log("Invitation created with ID:", inviteDocRef.id);
-
-    // ===== SUCCESS HANDLING =====
-    toast.success(`Successfully invited ${inviteEmail} to ${currentChama.name}`);
-    setInviteEmail('');
-    setShowInviteModal(false);
-
-    // Return success with new member data
-    return {
-      success: true,
-      newMember: {
-        id: membershipRef.id,
-        ...membershipData,
-        joinDate: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+    try {
+      // ===== VALIDATION SECTION =====
+      console.log("=== Starting invitation process ===");
+      
+      // Validate user is logged in
+      if (!user || !user.uid) {
+        toast.error("You must be logged in to send invitations");
+        return;
       }
-    };
 
-  } catch (error) {
-    console.error("❌ Error in invitation process:", {
-      error: error,
-      code: error.code,
-      message: error.message,
-      stack: error.stack
-    });
+      // Validate chama is selected
+      if (!currentChama || !currentChama.id) {
+        toast.error("No chama selected");
+        return;
+      }
 
-    // Specific error handling
-    if (error.code === 'permission-denied') {
-      toast.error("You don't have permission to invite members");
-    } else if (error.code === 'invalid-argument') {
-      toast.error("Invalid data. Please check all fields.");
-    } else if (error.message.includes('network')) {
-      toast.error("Network error. Please check your connection.");
-    } else {
-      toast.error("Failed to send invitation. Please try again.");
+      // Validate email is provided
+      if (!inviteEmail || !inviteEmail.trim()) {
+        toast.error("Please enter an email address");
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(inviteEmail.trim())) {
+        toast.error("Please enter a valid email address");
+        return;
+      }
+
+      // ===== VERIFY ADMIN STATUS =====
+      const userMembershipsQuery = query(
+        collection(db, 'memberships'),
+        where('userId', '==', user.uid),
+        where('chamaId', '==', currentChama.id)
+      );
+      const userMembershipSnapshot = await getDocs(userMembershipsQuery);
+      
+      if (userMembershipSnapshot.empty) {
+        toast.error("You are not a member of this chama");
+        return;
+      }
+      
+      const userMembership = userMembershipSnapshot.docs[0].data();
+      
+      if (userMembership.role !== 'admin') {
+        toast.error("You must be an admin to invite members");
+        return;
+      }
+
+      // ===== FIND USER TO INVITE =====
+      const usersRef = collection(db, 'users');
+      const userQuery = query(usersRef, where('email', '==', inviteEmail.trim()));
+      const userQuerySnapshot = await getDocs(userQuery);
+    
+      if (userQuerySnapshot.empty) {
+        toast.error("User with this email not found. They need to register first.");
+        return;
+      }
+    
+      const userToInvite = userQuerySnapshot.docs[0].data();
+      console.log("Found user to invite:", userToInvite);
+
+      // ===== CHECK FOR EXISTING MEMBERSHIP =====
+      const membershipsRef = collection(db, 'memberships');
+      const membershipQuery = query(
+        membershipsRef,
+        where('chamaId', '==', currentChama.id),
+        where('userId', '==', userToInvite.uid)
+      );
+      const membershipSnapshot = await getDocs(membershipQuery);
+    
+      if (!membershipSnapshot.empty) {
+        toast.warning("User is already a member of this chama");
+        return;
+      }
+
+      // ===== CHECK FOR PENDING INVITATIONS =====
+      const invitationsRef = collection(db, 'invitations');
+      const invitationQuery = query(
+        invitationsRef,
+        where('chamaId', '==', currentChama.id),
+        where('invitedUserEmail', '==', inviteEmail.trim()),
+        where('status', '==', 'pending')
+      );
+      const invitationSnapshot = await getDocs(invitationQuery);
+    
+      if (!invitationSnapshot.empty) {
+        toast.info("Invitation already sent to this user");
+        return;
+      }
+
+      // ===== CREATE ONLY INVITATION RECORD (NOT MEMBERSHIP) =====
+      const invitationData = {
+        chamaId: currentChama.id,
+        chamaName: currentChama.name,
+        invitedUserId: userToInvite.uid,
+        invitedUserEmail: inviteEmail.trim(),
+        invitedUserName: userToInvite.displayName || userToInvite.name || inviteEmail.split('@')[0],
+        invitedUserPhone: userToInvite.phoneNumber || userToInvite.phone || '',
+        inviterUserId: user.uid,
+        inviterEmail: user.email,
+        inviterName: user.displayName || user.email || 'Admin',
+        proposedRole: 'member', // Default role for invited users
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days expiry
+      };
+
+      console.log("Creating invitation with data:", invitationData);
+      const inviteDocRef = await addDoc(collection(db, 'invitations'), invitationData);
+      console.log("Invitation created with ID:", inviteDocRef.id);
+
+      // ===== SUCCESS HANDLING =====
+      toast.success(`Successfully invited ${inviteEmail} to ${currentChama.name}`);
+      setInviteEmail('');
+      setShowInviteModal(false);
+
+      // TODO: Send email notification to the invited user
+      // You might want to implement email sending here or trigger a cloud function
+
+      return {
+        success: true,
+        invitationId: inviteDocRef.id
+      };
+
+    } catch (error) {
+      console.error("❌ Error in invitation process:", {
+        error: error,
+        code: error.code,
+        message: error.message,
+        stack: error.stack
+      });
+
+      // Specific error handling
+      if (error.code === 'permission-denied') {
+        toast.error("You don't have permission to invite members");
+      } else if (error.code === 'invalid-argument') {
+        toast.error("Invalid data. Please check all fields.");
+      } else if (error.message.includes('network')) {
+        toast.error("Network error. Please check your connection.");
+      } else {
+        toast.error("Failed to send invitation. Please try again.");
+      }
+
+      return { success: false, error };
+    } finally {
+      setIsInviting(false);
     }
-
-    return { success: false, error };
-  } finally {
-    setIsInviting(false);
-  }
-};
+  };
 
   const handleChamaChange = (e) => {
     const { name, value } = e.target;
@@ -524,18 +510,19 @@ const handleInviteMember = async (e) => {
   );
 
   return (
-    <Container className="py-4">
+    <Container className="py-4" fluid="md">
       {/* Header with Search */}
-      <Row className="mb-4 align-items-center">
+      <Row className="mb-4 align-items-center g-3">
         <Col md={6}>
-          <h2 className="d-flex align-items-center">
-            <FiHome className="me-2" /> My Chamas
-          </h2>
+          <div className="d-flex align-items-center">
+            <FiHome className="text-primary me-2" size={24} />
+            <h1 className="h2 mb-0">My Chamas</h1>
+          </div>
         </Col>
-        <Col md={6} className="mt-2 mt-md-0">
-          <InputGroup>
-            <InputGroup.Text>
-              <FiSearch />
+        <Col md={6}>
+          <InputGroup className="shadow-sm">
+            <InputGroup.Text className="bg-white">
+              <FiSearch className="text-muted" />
             </InputGroup.Text>
             <FormControl
               placeholder="Search all chamas..."
@@ -550,16 +537,18 @@ const handleInviteMember = async (e) => {
                 );
               }}
               onKeyPress={(e) => e.key === 'Enter' && searchChamas()}
+              className="border-start-0"
             />
             <Button 
               variant="primary" 
               onClick={searchChamas}
               disabled={!searchTerm.trim() || isSearching}
+              className="px-3"
             >
               {isSearching ? (
-                <Spinner as="span" size="sm" animation="border" />
+                <Spinner as="span" size="sm" animation="border" role="status" />
               ) : (
-                'Search'
+                <span>Search</span>
               )}
             </Button>
           </InputGroup>
@@ -568,22 +557,25 @@ const handleInviteMember = async (e) => {
 
       {/* Chama Selector and Create Button */}
       {!searchTerm && userChamas.length > 0 && (
-        <div className="d-flex justify-content-between align-items-center mb-4">
+        <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
           <Dropdown as={ButtonGroup}>
-            <Dropdown.Toggle variant="outline-primary">
-              {activeChama ? activeChama.name : 'Select Chama'}
+            <Dropdown.Toggle variant="outline-primary" className="d-flex align-items-center">
+              <span className="me-2">
+                {activeChama ? activeChama.name : 'Select Chama'}
+              </span>
               {activeChama?.isAdmin && (
-                <FiStar size={14} className="ms-2 text-warning" />
+                <FiStar size={16} className="text-warning" />
               )}
             </Dropdown.Toggle>
-            <Dropdown.Menu>
+            <Dropdown.Menu className="shadow-sm">
               {userChamas.map(chama => (
                 <Dropdown.Item 
                   key={chama.id} 
                   onClick={() => navigateToChama(chama.id)}
                   active={activeChama?.id === chama.id}
+                  className="d-flex align-items-center"
                 >
-                  {chama.name}
+                  <span className="flex-grow-1">{chama.name}</span>
                   {chama.isAdmin && (
                     <FiStar size={14} className="ms-2 text-warning" />
                   )}
@@ -595,8 +587,9 @@ const handleInviteMember = async (e) => {
           <Button 
             variant="primary"
             onClick={() => setShowCreateModal(true)}
+            className="d-flex align-items-center"
           >
-            <FiPlusCircle className="me-2" />
+            <FiPlusCircle className="me-2" size={18} />
             Create New Chama
           </Button>
         </div>
@@ -604,26 +597,30 @@ const handleInviteMember = async (e) => {
 
       {/* Error Alert */}
       {error && (
-        <Alert variant="danger" onClose={() => setError(null)} dismissible className="mb-4">
-          {error}
+        <Alert variant="danger" onClose={() => setError(null)} dismissible className="mb-4 shadow-sm">
+          <div className="d-flex align-items-center">
+            <FiAlertCircle className="me-2" size={20} />
+            <span>{error}</span>
+          </div>
         </Alert>
       )}
 
       {/* Search Results */}
       {searchTerm && (
         <div className="mb-4">
-          <h5>Search Results for "{searchTerm}"</h5>
+          <h3 className="h5 mb-3">Search Results for "{searchTerm}"</h3>
           {isSearching ? (
-            <div className="text-center py-3">
-              <Spinner animation="border" />
-              <p className="mt-2">Searching...</p>
+            <div className="text-center py-4">
+              <Spinner animation="border" role="status" />
+              <p className="mt-2 text-muted">Searching chamas...</p>
             </div>
           ) : searchResults.length > 0 ? (
-            <Row>
+            <Row className="g-4">
               {searchResults.map(renderChamaCard)}
             </Row>
           ) : (
-            <Alert variant="info" className="text-center">
+            <Alert variant="info" className="text-center shadow-sm">
+              <FiInfo className="me-2" size={18} />
               No chamas found matching "<strong>{searchTerm}</strong>"
             </Alert>
           )}
@@ -632,58 +629,92 @@ const handleInviteMember = async (e) => {
 
       {/* My Chamas Section (only shown when not searching) */}
       {!searchTerm && (
-        <>
-          <Tabs
-            activeKey={activeTab}
-            onSelect={(k) => setActiveTab(k)}
-            className="mb-4"
-          >
-            <Tab eventKey="all" title={`All (${userChamas.length})`} />
-            <Tab eventKey="admin" title={`Admin (${adminChamas.length})`} />
-            <Tab eventKey="member" title={`Member (${memberChamas.length})`} />
-          </Tabs>
+        <Tabs.Root 
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="mb-4"
+        >
+          {/* Tab List - Styled to match Bootstrap */}
+          <Tabs.List className="nav nav-tabs mb-3">
+            <Tabs.Trigger 
+              value="all" 
+              className={`nav-link ${activeTab === 'all' ? 'active' : ''}`}
+            >
+              All ({userChamas.length})
+            </Tabs.Trigger>
+            <Tabs.Trigger 
+              value="admin" 
+              className={`nav-link ${activeTab === 'admin' ? 'active' : ''}`}
+            >
+              Admin ({adminChamas.length})
+            </Tabs.Trigger>
+            <Tabs.Trigger 
+              value="member" 
+              className={`nav-link ${activeTab === 'member' ? 'active' : ''}`}
+            >
+              Member ({memberChamas.length})
+            </Tabs.Trigger>
+          </Tabs.List>
 
+          {/* Tab Content with proper spacing and animations */}
           {loadingChamas ? (
-            <div className="text-center py-5">
-              <Spinner animation="border" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </Spinner>
-              <p className="mt-2">Loading your chamas...</p>
-            </div>
+            <Tabs.Content value={activeTab} className="pt-2">
+              <div className="text-center py-5">
+                <Spinner animation="border" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </Spinner>
+                <p className="mt-3 text-muted">Loading your chamas...</p>
+              </div>
+            </Tabs.Content>
           ) : userChamas.length === 0 ? (
-            <Card className="text-center py-5">
-              <Card.Body>
-                <FiUsers size={48} className="text-muted mb-3" />
-                <h5>No Chamas Found</h5>
-                <p className="text-muted mb-4">
-                  You haven't joined any chamas yet. Create or join one to get started.
-                </p>
-                <Button 
-                  variant="primary"
-                  onClick={() => setShowCreateModal(true)}
-                >
-                  <FiPlusCircle className="me-2" />
-                  Create Your First Chama
-                </Button>
-              </Card.Body>
-            </Card>
+            <Tabs.Content value={activeTab} className="pt-2">
+              <Card className="text-center py-5 border-0 shadow-sm">
+                <Card.Body className="px-4 py-5">
+                  <FiUsers size={48} className="text-muted mb-3" />
+                  <h4 className="mb-2">No Chamas Found</h4>
+                  <p className="text-muted mb-4">
+                    You haven't joined any chamas yet. Create or join one to get started.
+                  </p>
+                  <Button 
+                    variant="primary"
+                    onClick={() => setShowCreateModal(true)}
+                    size="lg"
+                  >
+                    <FiPlusCircle className="me-2" />
+                    Create Your First Chama
+                  </Button>
+                </Card.Body>
+              </Card>
+            </Tabs.Content>
           ) : (
-            <Row>
-              {activeTab === 'all' && userChamas.map(renderChamaCard)}
-              {activeTab === 'admin' && adminChamas.map(renderChamaCard)}
-              {activeTab === 'member' && memberChamas.map(renderChamaCard)}
-            </Row>
+            <>
+              <Tabs.Content value="all" className="pt-2">
+                <Row className="g-4">
+                  {userChamas.map(renderChamaCard)}
+                </Row>
+              </Tabs.Content>
+              <Tabs.Content value="admin" className="pt-2">
+                <Row className="g-4">
+                  {adminChamas.map(renderChamaCard)}
+                </Row>
+              </Tabs.Content>
+              <Tabs.Content value="member" className="pt-2">
+                <Row className="g-4">
+                  {memberChamas.map(renderChamaCard)}
+                </Row>
+              </Tabs.Content>
+            </>
           )}
-        </>
+        </Tabs.Root>
       )}
 
       {/* Chama Creation Modal */}
-      <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Create New Chama</Modal.Title>
+      <Modal show={showCreateModal} onHide={() => setShowCreateModal(false)} centered>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="h5">Create New Chama</Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleCreateChama}>
-          <Modal.Body>
+          <Modal.Body className="pt-0">
             <Form.Group className="mb-3">
               <Form.Label>Chama Name</Form.Label>
               <Form.Control
@@ -693,10 +724,11 @@ const handleInviteMember = async (e) => {
                 onChange={handleChamaChange}
                 placeholder="e.g. Umoja Group"
                 required
+                autoFocus
               />
             </Form.Group>
 
-            <Row className="mb-3">
+            <Row className="mb-3 g-3">
               <Col md={6}>
                 <Form.Group>
                   <Form.Label>Target Amount (Ksh)</Form.Label>
@@ -741,6 +773,7 @@ const handleInviteMember = async (e) => {
                 onChange={handleChamaChange}
                 required
               >
+                <option value="">Select period</option>
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
@@ -748,15 +781,15 @@ const handleInviteMember = async (e) => {
               </Form.Select>
             </Form.Group>
           </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowCreateModal(false)}>
+          <Modal.Footer className="border-0">
+            <Button variant="outline-secondary" onClick={() => setShowCreateModal(false)}>
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={isCreating}>
               {isCreating ? (
                 <>
-                  <Spinner as="span" size="sm" animation="border" />
-                  <span className="ms-2">Creating...</span>
+                  <Spinner as="span" size="sm" animation="border" className="me-2" />
+                  Creating...
                 </>
               ) : (
                 <>
@@ -770,12 +803,14 @@ const handleInviteMember = async (e) => {
       </Modal>
 
       {/* Invite Member Modal */}
-      <Modal show={showInviteModal} onHide={() => setShowInviteModal(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Invite Member to {currentChama?.name}</Modal.Title>
+      <Modal show={showInviteModal} onHide={() => setShowInviteModal(false)} centered>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="h5">
+            Invite Member to {currentChama?.name}
+          </Modal.Title>
         </Modal.Header>
         <Form onSubmit={handleInviteMember}>
-          <Modal.Body>
+          <Modal.Body className="pt-0">
             <Form.Group className="mb-3">
               <Form.Label>Member Email</Form.Label>
               <Form.Control
@@ -784,25 +819,24 @@ const handleInviteMember = async (e) => {
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 required
+                autoFocus
               />
               <Form.Text className="text-muted">
-                User must have an existing account with this email
+                <small>User must have an existing account with this email</small>
               </Form.Text>
             </Form.Group>
           </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowInviteModal(false)}>
+          <Modal.Footer className="border-0">
+            <Button variant="outline-secondary" onClick={() => setShowInviteModal(false)}>
               Cancel
             </Button>
             <Button variant="primary" type="submit" disabled={isInviting || !inviteEmail}>
               {isInviting ? (
-                <Spinner as="span" size="sm" animation="border" />
+                <Spinner as="span" size="sm" animation="border" className="me-2" />
               ) : (
-                <>
-                  <FiMail className="me-2" />
-                  Send Invitation
-                </>
+                <FiMail className="me-2" />
               )}
+              Send Invitation
             </Button>
           </Modal.Footer>
         </Form>
