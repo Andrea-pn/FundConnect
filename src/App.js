@@ -29,8 +29,6 @@ export const ChamaContext = createContext({
 });
 
 function App() {
-  console.log('App component rendering...'); // Debug log
-  
   const [darkMode, setDarkMode] = useState(false);
   const [activeChama, setActiveChama] = useState(null);
   const [chamaLoading, setChamaLoading] = useState(false);
@@ -38,12 +36,6 @@ function App() {
   const [user, loading] = useAuthState(auth);
   const navigate = useNavigate();
   const location = useLocation();
-
-  console.log('App state:', { user, loading, location: location.pathname }); // Debug log
-
-  useEffect(() => {
-    console.log('Current route:', location.pathname);
-  }, [location]);
 
   const fetchChamaData = async (chamaId) => {
     if (!chamaId) return;
@@ -110,11 +102,8 @@ function App() {
   };
 
   if (loading) {
-    console.log('Showing loading screen...'); // Debug log
     return <LoadingScreen />;
   }
-
-  console.log('About to render main app content...'); // Debug log
 
   return (
     <ChamaContext.Provider value={{ 

@@ -3,7 +3,7 @@ import {
   Container, Row, Col, Card, Form, Button, 
   Modal, Badge, Spinner, Alert,
   InputGroup, ProgressBar,
-  FormControl, Dropdown, ButtonGroup, Nav
+  FormControl, Dropdown, ButtonGroup
 } from 'react-bootstrap';
 import { 
   FiPlusCircle, FiDollarSign, 
@@ -14,7 +14,7 @@ import {
 import { db } from '../firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import * as Tabs from '@radix-ui/react-tabs';
 
@@ -170,7 +170,7 @@ const HomePage = () => {
 
     try {
       // ===== VALIDATION SECTION =====
-      console.log("=== Starting invitation process ===");
+  
       
       // Validate user is logged in
       if (!user || !user.uid) {
@@ -227,7 +227,7 @@ const HomePage = () => {
       }
     
       const userToInvite = userQuerySnapshot.docs[0].data();
-      console.log("Found user to invite:", userToInvite);
+      
 
       // ===== CHECK FOR EXISTING MEMBERSHIP =====
       const membershipsRef = collection(db, 'memberships');
@@ -276,9 +276,7 @@ const HomePage = () => {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days expiry
       };
 
-      console.log("Creating invitation with data:", invitationData);
-      const inviteDocRef = await addDoc(collection(db, 'invitations'), invitationData);
-      console.log("Invitation created with ID:", inviteDocRef.id);
+              const inviteDocRef = await addDoc(collection(db, 'invitations'), invitationData);
 
       // ===== SUCCESS HANDLING =====
       toast.success(`Successfully invited ${inviteEmail} to ${currentChama.name}`);
@@ -348,7 +346,7 @@ const HomePage = () => {
       status: "active"
     });
 
-    console.log("Chama created with ID:", chamaRef.id);
+    
 
     // Get user details from auth or fetch from users collection
     let userName = user.displayName || user.email?.split('@')[0] || 'Admin';
@@ -372,7 +370,7 @@ const HomePage = () => {
     }
 
     // Create the membership with all required fields
-    const membershipRef = await addDoc(collection(db, 'memberships'), {
+    await addDoc(collection(db, 'memberships'), {
       userId: user.uid,
       chamaId: chamaRef.id,
       chamaName: chamaData.name, // Add chama name
@@ -388,7 +386,7 @@ const HomePage = () => {
       isCreator: true // Flag to identify the chama creator
     });
 
-    console.log("Membership created with ID:", membershipRef.id);
+    
 
     const newChama = {
       id: chamaRef.id,

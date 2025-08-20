@@ -1,8 +1,8 @@
 // components/ContributionsAnalytics.js
 import React from 'react';
-import { Card, Row, Col, Badge, ListGroup, Alert } from 'react-bootstrap';
+import { Card, Row, Col, Alert, ListGroup, Badge } from 'react-bootstrap';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { FiTrendingUp, FiTrendingDown, FiDollarSign, FiUsers, FiCalendar } from 'react-icons/fi';
+import { FiDollarSign, FiCalendar, FiTrendingUp, FiTrendingDown } from 'react-icons/fi';
 
 const ContributionsAnalytics = ({ analysis, loading, error }) => {
   if (loading) {
@@ -28,7 +28,6 @@ const ContributionsAnalytics = ({ analysis, loading, error }) => {
     totalContributions,
     totalAmount,
     monthlyTrend,
-    contributionsByType,
     contributionsByTypeGrouped, // Add this line
     contributionsByStatus,
     topContributors,

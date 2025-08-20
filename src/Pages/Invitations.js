@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Spinner, Alert, Badge } from 'react-bootstrap';
-import { FiMail, FiCheck, FiX, FiUsers, FiHome } from 'react-icons/fi';
+import { Container, Row, Col, Card, Button, Spinner, Alert } from 'react-bootstrap';
+import { FiMail, FiCheck, FiX, FiHome } from 'react-icons/fi';
 import { 
   collection, 
   query, 
@@ -10,10 +10,9 @@ import {
   doc,
   addDoc,
   serverTimestamp,
-  increment,
-  onSnapshot
+  increment
 } from 'firebase/firestore';
-import { db, auth } from '../firebase';  // Correct relative path
+import { db } from '../firebase';  // Correct relative path
 import { getAuth } from 'firebase/auth';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';

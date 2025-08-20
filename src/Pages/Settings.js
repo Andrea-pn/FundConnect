@@ -14,10 +14,8 @@ import { doc, getDoc, updateDoc, collection, addDoc, deleteDoc, setDoc } from 'f
 import { updateEmail, updateProfile, sendPasswordResetEmail, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, auth, storage } from '../firebase';
-import { useNavigate } from 'react-router-dom';
 
 const Settings = () => {
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [currentUser, setCurrentUser] = useState(null);
   const [profileForm, setProfileForm] = useState({
@@ -147,7 +145,7 @@ const Settings = () => {
         try {
           await deleteObject(ref(storage, currentUser.photoURL));
         } catch (err) {
-          console.log('Old photo deletion failed (ignoring)', err);
+          // Old photo deletion failed (ignoring)
         }
       }
 

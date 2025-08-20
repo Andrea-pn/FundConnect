@@ -9,7 +9,6 @@ import {
   FiCheckCircle, FiDownload, 
   FiSearch, FiClock, FiUsers, FiPrinter, FiRefreshCw
 } from 'react-icons/fi';
-import { useOutletContext } from 'react-router-dom';
 import { ChamaContext } from '../App';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp, query, where, getDoc, getDocs, doc, updateDoc, onSnapshot, orderBy } from 'firebase/firestore';
@@ -20,7 +19,6 @@ import 'jspdf-autotable';
 import ContributionsTable from '../components/ContributionsTable';
 
 const Contributions = () => {
-  useOutletContext();
   const { activeChama } = useContext(ChamaContext);
   const auth = getAuth();
   
@@ -69,9 +67,6 @@ const Contributions = () => {
   const extractMemberName = useCallback((memberData) => {
     if (!memberData) return 'Unknown Member';
     
-    console.log('=== EXTRACTING NAME FROM MEMBER DATA ===');
-    console.log('Full member data:', memberData);
-    
     // Priority order for name fields (including invitation-specific fields)
     const nameFields = [
       'name',
@@ -90,7 +85,6 @@ const Contributions = () => {
         const name = memberData[field].trim();
         // Avoid generic/auto-generated names
         if (!name.toLowerCase().includes('member') && !name.match(/^[a-zA-Z0-9]{8,}$/)) {
-          console.log(`Found name in field '${field}':`, name);
           return name;
         }
       }
@@ -102,7 +96,6 @@ const Contributions = () => {
       const lastName = (memberData.lastName || '').trim();
       const combinedName = `${firstName} ${lastName}`.trim();
       if (combinedName && combinedName !== ' ') {
-        console.log('Combined firstName and lastName:', combinedName);
         return combinedName;
       }
     }
@@ -122,7 +115,6 @@ const Contributions = () => {
           .join(' ');
         
         if (formattedEmailName && formattedEmailName.length > 2) {
-          console.log('Extracted name from email:', formattedEmailName);
           return formattedEmailName;
         }
       }
@@ -133,7 +125,6 @@ const Contributions = () => {
     for (const phoneField of phoneFields) {
       if (memberData[phoneField]) {
         const phone = memberData[phoneField];
-        console.log('Using phone number as name:', phone);
         return `Contact ${phone}`;
       }
     }
@@ -149,10 +140,6 @@ const Contributions = () => {
 
   //Contribution type options
   const getContributionTypeOptions = useCallback(() => {
-    console.log('=== GENERATING CONTRIBUTION OPTIONS ===');
-    console.log('chamaSettings:', chamaSettings);
-    console.log('events:', events);
-    
     const options = [];
     
     // Add the chama's contribution period (using correct property name)
@@ -161,14 +148,12 @@ const Contributions = () => {
         value: chamaSettings.period,
         label: chamaSettings.period
       });
-      console.log('Added chama period:', chamaSettings.period);
     } else {
       // Default period if not set
       options.push({
         value: 'Monthly',
         label: 'Monthly'
       });
-      console.log('Added default Monthly');
     }
     
     // Add standard contribution types
@@ -176,73 +161,21 @@ const Contributions = () => {
       { value: 'Fine', label: 'Fine' },
       { value: 'Loan Repayment', label: 'Loan Repayment' }
     );
-    console.log('Added standard types');
     
     // Add active events
-    console.log('Processing events:', events.length);
     events.forEach(event => {
-      console.log('Event:', event.name, 'Status:', event.status);
       if (event.name && event.status === 'Active') {
         options.push({
           value: `Event: ${event.name}`,
           label: `Event: ${event.name}`
         });
-        console.log('Added event:', event.name);
       }
     });
     
-    console.log('Final options:', options);
     return options;
   }, [chamaSettings, events]);
 
-  // Add this to your Contributions page component
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    try {
-      // Validate required fields
-      if (!formData.amount || !formData.type || !formData.date) {
-        alert('Please fill in all required fields');
-        return;
-      }
 
-      // Check if we have an active chama
-      if (!activeChama?.id) {
-        alert('No active chama selected. Please select a chama first.');
-        return;
-      }
-
-      const isPeriodicContribution = chamaSettings?.period && formData.type === chamaSettings.period;
-      
-      const contributionData = {
-        ...formData,
-        type: isPeriodicContribution ? 'Regular Contribution' : formData.type,
-        period: isPeriodicContribution ? chamaSettings.period : null,
-        chamaId: activeChama.id, // Use activeChama.id instead of selectedChamaId
-        chamaName: activeChama.name, // Optional: store chama name for easier querying
-        timestamp: serverTimestamp(),
-        createdAt: new Date().toISOString(),
-      };
-      
-      console.log('Saving contribution:', contributionData);
-      
-      await addDoc(collection(db, 'contributions'), contributionData);
-      
-      alert('Contribution saved successfully!');
-      
-      // Reset form
-      setFormData({
-        type: '',
-        amount: '',
-        date: new Date().toISOString().split('T')[0],
-        description: '',
-      });
-      
-    } catch (error) {
-      console.error('Error saving contribution:', error);
-      alert('Error saving contribution. Please try again.');
-    }
-  };
 
 
   // Enhanced data fetching function that mimics the Members component approach
@@ -257,7 +190,7 @@ const Contributions = () => {
         return;
       }
       
-      console.log('Fetching data for Chama ID:', activeChama.id);
+
       
       let allMembers = [];
       
@@ -270,7 +203,6 @@ const Contributions = () => {
         const membershipsSnapshot = await getDocs(membershipsQuery);
         
         if (membershipsSnapshot.size > 0) {
-          console.log('Found members in memberships collection:', membershipsSnapshot.size);
           
           // Process memberships with user data lookup (like in Members component)
           const membershipsData = await Promise.all(
@@ -289,7 +221,7 @@ const Contributions = () => {
                     userData = userDoc.data();
                   }
                 } catch (error) {
-                  console.log('Could not fetch user data for userId:', memberUserId);
+                  // User data not available
                 }
               }
               
@@ -305,7 +237,7 @@ const Contributions = () => {
                     userData = userSnapshot.docs[0].data();
                   }
                 } catch (error) {
-                  console.log('Could not fetch user data for email:', memberEmail);
+                  // User data not available
                 }
               }
               
@@ -342,7 +274,6 @@ const Contributions = () => {
         const invitationsSnapshot = await getDocs(invitationsQuery);
         
         if (invitationsSnapshot.size > 0) {
-          console.log('Found invitations:', invitationsSnapshot.size);
           
           const invitationsData = await Promise.all(
             invitationsSnapshot.docs.map(async (inviteDoc) => {
@@ -361,7 +292,7 @@ const Contributions = () => {
                     userData = userSnapshot.docs[0].data();
                   }
                 } catch (error) {
-                  console.log('Could not fetch user data for invitation email:', inviteEmail);
+                  // User data not available
                 }
               }
               
@@ -393,8 +324,7 @@ const Contributions = () => {
             );
             const fallbackSnapshot = await getDocs(fallbackQuery);
             
-            if (fallbackSnapshot.size > 0) {
-              console.log(`Found members in ${collectionName} collection:`, fallbackSnapshot.size);
+                    if (fallbackSnapshot.size > 0) {
               const fallbackData = fallbackSnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
@@ -415,11 +345,6 @@ const Contributions = () => {
       // Process members with enhanced name extraction
       const processedMembers = allMembers.map(member => {
         const extractedName = extractMemberName(member);
-        console.log(`Processing member ${member.id}:`, {
-          originalData: member,
-          extractedName: extractedName,
-          source: member.source
-        });
         
         return {
           id: member.id,
@@ -448,7 +373,7 @@ const Contributions = () => {
       // Sort members by name
       activeMembers.sort((a, b) => a.name.localeCompare(b.name));
       
-      console.log('Final processed active members:', activeMembers);
+
       setMembers(activeMembers);
 
       // Fetch contributions (existing code)
@@ -463,7 +388,7 @@ const Contributions = () => {
           ...doc.data()
         }));
         
-        console.log('Contributions loaded:', contributionsData.length);
+
         setContributions(contributionsData);
       } catch (contributionsError) {
         console.error('Error fetching contributions:', contributionsError);
@@ -472,7 +397,7 @@ const Contributions = () => {
 
       // Fetch events from chama subcollection
       try {
-        console.log('Fetching events for chama:', activeChama.id);
+
         
         // Try the subcollection approach first
         const eventsQuery = query(
@@ -484,7 +409,6 @@ const Contributions = () => {
         if (eventsSnapshot.size > 0) {
           const eventsData = eventsSnapshot.docs.map(doc => {
             const data = doc.data();
-            console.log('Event found:', data);
             return {
               id: doc.id,
               ...data,
@@ -494,11 +418,10 @@ const Contributions = () => {
             };
           });
           
-          console.log('Events loaded from subcollection:', eventsData.length);
+
           setEvents(eventsData);
         } else {
           // Fallback: try main events collection
-          console.log('No events in subcollection, trying main collection');
           const mainEventsQuery = query(
             collection(db, 'events'),
             where('chamaId', '==', activeChama.id)
@@ -508,7 +431,6 @@ const Contributions = () => {
           
           const mainEventsData = mainEventsSnapshot.docs.map(doc => {
             const data = doc.data();
-            console.log('Event found in main collection:', data);
             return {
               id: doc.id,
               ...data,
@@ -517,7 +439,7 @@ const Contributions = () => {
             };
           });
           
-          console.log('Events loaded from main collection:', mainEventsData.length);
+
           setEvents(mainEventsData);
         }
       } catch (eventsError) {
@@ -525,7 +447,6 @@ const Contributions = () => {
 
         // Try without orderBy in case createdAt field doesn't exist
         try {
-          console.log('Retrying events fetch without orderBy');
           const simpleEventsQuery = query(
             collection(db, 'chamas', activeChama.id, 'events')
           );
@@ -541,7 +462,7 @@ const Contributions = () => {
             };
           });
           
-          console.log('Events loaded (simple query):', simpleEventsData.length);
+
           setEvents(simpleEventsData);
         } catch (simpleError) {
           console.error('Simple events query also failed:', simpleError);
@@ -555,7 +476,7 @@ const Contributions = () => {
         if (chamaDoc.exists()) {
           const chamaData = chamaDoc.data();
           setChamaSettings(chamaData);
-          console.log('Chama settings loaded:', chamaData);
+
         }
       } catch (settingsError) {
         console.error('Error fetching chama settings:', settingsError);
@@ -571,11 +492,7 @@ const Contributions = () => {
     }
   }, [activeChama?.id, extractMemberName]);
 
-  // Debug events
-  useEffect(() => {
-    console.log('Events state updated:', events);
-    console.log('Active events:', events.filter(e => e.status === 'Active'));
-  }, [events]);
+
 
   // Load data on component mount and when activeChama changes
   useEffect(() => {
@@ -634,7 +551,7 @@ const Contributions = () => {
 
   // Enhanced member selection handler
   const handleMemberSelect = (memberId) => {
-    console.log('Selecting member with ID:', memberId);
+
     
     setError('');
     
@@ -653,7 +570,7 @@ const Contributions = () => {
       m.docId === memberId
     );
     
-    console.log('Found member:', selectedMember);
+    
     
     if (selectedMember) {
       const memberName = selectedMember.name;
@@ -670,7 +587,7 @@ const Contributions = () => {
         memberName: memberName
       }));
       
-      console.log('Member selected successfully:', { id: selectedMember.id, name: memberName });
+      
     } else {
       console.warn('Member not found for ID:', memberId);
       setError('Selected member not found. Please refresh and try again.');
@@ -694,7 +611,7 @@ const Contributions = () => {
         );
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
-          console.log(`Real-time update from ${collectionName}:`, snapshot.size, 'documents');
+  
           
           // Check if any documents were removed or status changed
           const changes = snapshot.docChanges();
@@ -704,7 +621,7 @@ const Contributions = () => {
           );
           
           if (hasRelevantChanges) {
-            console.log('Detected member changes, refreshing member list...');
+
             // Use a timeout to debounce multiple rapid changes
             setTimeout(() => {
               fetchData();
@@ -751,12 +668,7 @@ const Contributions = () => {
       return;
     }
 
-    // Debug form data
-    console.log('Form data for submission:', formData);
-    console.log('Payment method:', formData.paymentMethod);
-    console.log('Phone number:', formData.phoneNumber);
-    console.log('Member ID:', formData.memberId);
-    console.log('Amount:', formData.amount);
+          // Debug form data
 
     // Validate form
     if (!formData.memberId || !formData.amount) {
@@ -805,8 +717,7 @@ const Contributions = () => {
         }
         // Simulate STK push - generate a mock CheckoutRequestID
         autoReference = `STK-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        console.log('Simulated STK push initiated for phone:', formData.phoneNumber);
-        console.log('Generated reference:', autoReference);
+
       }
 
       // Add to Firestore
@@ -843,7 +754,7 @@ const Contributions = () => {
             createdBy: auth.currentUser.uid,
             createdByName: auth.currentUser.displayName || 'Admin'
           });
-          console.log('Event contribution recorded in event subcollection');
+  
         } catch (eventError) {
           console.error('Error recording event contribution:', eventError);
           // Don't fail the main contribution if event recording fails
@@ -927,8 +838,8 @@ const Contributions = () => {
         if (bulkFormData.paymentMethod === 'M-Pesa' && bulkFormData.phoneNumber) {
           // Simulate STK push - generate a mock CheckoutRequestID
           bulkReference = `STK-BULK-${Date.now()}-${contrib.memberId}-${Math.random().toString(36).substr(2, 6)}`;
-          console.log('Simulated bulk STK push for member:', contrib.memberName, 'phone:', bulkFormData.phoneNumber);
-          console.log('Generated reference:', bulkReference);
+  
+  
         }
 
         const docRef = await addDoc(collection(db, 'contributions'), {
@@ -1279,15 +1190,14 @@ const Contributions = () => {
       'chamaMembers'
     ];
     
-    console.log('=== TESTING COLLECTIONS ===');
-    console.log('Chama ID:', activeChama?.id);
+
     
     for (const collectionName of collections) {
       try {
         // Test 1: Get all documents
         const allQuery = query(collection(db, collectionName));
-        const allSnapshot = await getDocs(allQuery);
-        console.log(`${collectionName} - Total docs: ${allSnapshot.size}`);
+        await getDocs(allQuery);
+
         
         // Test 2: Get documents with chamaId
         if (activeChama?.id) {
@@ -1296,16 +1206,15 @@ const Contributions = () => {
             where('chamaId', '==', activeChama.id)
           );
           const chamaSnapshot = await getDocs(chamaQuery);
-          console.log(`${collectionName} - With chamaId: ${chamaSnapshot.size}`);
+
           
           // Log first document structure
           if (chamaSnapshot.size > 0) {
-            const firstDoc = chamaSnapshot.docs[0].data();
-            console.log(`${collectionName} - Sample:`, firstDoc);
+            // Document structure available but not used
           }
         }
       } catch (error) {
-        console.log(`${collectionName} - Error:`, error.message);
+
       }
     }
   };
@@ -1338,11 +1247,7 @@ const Contributions = () => {
     );
   }
 
-  // Debug info (only in development)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Current members state:', members);
-    console.log('Members for dropdown:', members.map(m => ({ id: m.id, name: m.name })));
-  }
+
 
   return (
     <Container fluid className="py-4">

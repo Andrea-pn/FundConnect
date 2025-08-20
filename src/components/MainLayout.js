@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Navbar, Nav, Dropdown, Button, Badge } from 'react-bootstrap';
+import { Navbar, Nav, Dropdown, Button } from 'react-bootstrap';
 import { FiBell, FiUser, FiSettings, FiLogOut, FiSun, FiMoon } from 'react-icons/fi';
 import { getAuth, signOut } from 'firebase/auth';
 import Sidebar from './Sidebar';
@@ -15,7 +15,6 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
   
-  const [notifications, setNotifications] = useState([]);
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
   const auth = getAuth();
@@ -230,25 +229,6 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
                 }}
               >
                 <FiBell size={isMobile ? 16 : 18} />
-                {notifications.length > 0 && (
-                  <Badge
-                    bg="danger"
-                    style={{
-                      position: 'absolute',
-                      top: isMobile ? '-6px' : '-8px',
-                      right: isMobile ? '-6px' : '-8px',
-                      fontSize: isMobile ? '8px' : '10px',
-                      border: '2px solid #fff',
-                      minWidth: isMobile ? '14px' : '16px',
-                      height: isMobile ? '14px' : '16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    {notifications.length}
-                  </Badge>
-                )}
               </Dropdown.Toggle>
               <Dropdown.Menu
                 style={{
@@ -269,48 +249,24 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
                   } : {})
                 }}
               >
-                {notifications.length > 0 ? (
-                  notifications.map((notification, index) => (
-                    <Dropdown.Item
-                      key={index}
-                      style={{
-                        color: darkMode ? '#fff' : '#333',
-                        backgroundColor: darkMode ? '#2a2a2a' : '#fff',
-                        padding: '10px 15px',
-                        transition: 'all 0.3s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.backgroundColor = darkMode ? '#33a17c' : '#f8f9fa';
-                        e.target.style.color = darkMode ? '#fff' : '#333';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.backgroundColor = darkMode ? '#2a2a2a' : '#fff';
-                        e.target.style.color = darkMode ? '#fff' : '#333';
-                      }}
-                    >
-                      {notification.message}
-                    </Dropdown.Item>
-                  ))
-                ) : (
-                  <Dropdown.Item
-                    style={{
-                      color: darkMode ? '#ccc' : '#666',
-                      backgroundColor: darkMode ? '#2a2a2a' : '#fff',
-                      padding: '10px 15px',
-                      transition: 'all 0.3s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = darkMode ? '#33a17c' : '#f8f9fa';
-                      e.target.style.color = darkMode ? '#fff' : '#333';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.backgroundColor = darkMode ? '#2a2a2a' : '#fff';
-                      e.target.style.color = darkMode ? '#fff' : '#333';
-                    }}
-                  >
-                    No new notifications
-                  </Dropdown.Item>
-                )}
+                <Dropdown.Item
+                  style={{
+                    color: darkMode ? '#ccc' : '#666',
+                    backgroundColor: darkMode ? '#2a2a2a' : '#fff',
+                    padding: '10px 15px',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = darkMode ? '#33a17c' : '#f8f9fa';
+                    e.target.style.color = darkMode ? '#fff' : '#333';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = darkMode ? '#2a2a2a' : '#fff';
+                    e.target.style.color = darkMode ? '#fff' : '#333';
+                  }}
+                >
+                  No new notifications
+                </Dropdown.Item>
               </Dropdown.Menu>
             </Dropdown>
 
@@ -366,7 +322,6 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
               >
                 <Dropdown.Item
                   onClick={() => {
-                    console.log('Settings button clicked, navigating to /settings');
                     navigate(`/chama/${chamaId}/settings`);
                   }}
                   style={{

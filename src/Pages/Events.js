@@ -31,8 +31,7 @@ const Events = ({ darkMode }) => {
   const [,setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  console.log('Active chama from context:', activeChama);
-  console.log('Chama loading:', chamaLoading);
+
   
   const [newEvent, setNewEvent] = useState({
     name: '',
@@ -144,17 +143,7 @@ const Events = ({ darkMode }) => {
     }
   };
 
-  // Add this to your event display/modal
-  const [eventContributions, setEventContributions] = useState([]);
-  const [eventTotal, setEventTotal] = useState(0);
 
-  // Function to load event contributions when viewing an event
-  const loadEventContributions = async (eventId) => {
-    const contributions = await fetchEventContributions(eventId);
-    const total = await getEventContributionTotal(eventId);
-    setEventContributions(contributions);
-    setEventTotal(total);
-  };
 
   const handleAddEvent = async () => {
     if (!newEvent.name || !newEvent.location || !newEvent.date) {

@@ -43,13 +43,11 @@ const teamMembers = [
   ];
 
 const LandingPage = () => {
-  console.log('LandingPage component rendering...'); // Debug log
   
   const navigate = useNavigate();
   const observerRef = useRef(null);
 
   useEffect(() => {
-    console.log('LandingPage useEffect running...'); // Debug log
     // Create intersection observer for smooth animations that work both ways
     const observer = new IntersectionObserver(
       (entries) => {
@@ -475,11 +473,11 @@ const LandingPage = () => {
             
             <div className="footer-bottom animate-on-scroll" style={{animationDelay: '0.8s'}}>
               <div className="footer-links">
-                <a href="#" className="footer-link" style={{fontSize: '0.9rem'}}>Privacy Policy</a>
-                <a href="#" className="footer-link" style={{fontSize: '0.9rem'}}>Terms of Service</a>
-                <a href="#" className="footer-link" style={{fontSize: '0.9rem'}}>Help Center</a>
-                <a href="#" className="footer-link" style={{fontSize: '0.9rem'}}>About Us</a>
-                <a href="#" className="footer-link" style={{fontSize: '0.9rem'}}>Blog</a>
+                <button className="footer-link" style={{fontSize: '0.9rem', background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer'}}>Privacy Policy</button>
+                <button className="footer-link" style={{fontSize: '0.9rem', background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer'}}>Terms of Service</button>
+                <button className="footer-link" style={{fontSize: '0.9rem', background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer'}}>Help Center</button>
+                <button className="footer-link" style={{fontSize: '0.9rem', background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer'}}>About Us</button>
+                <button className="footer-link" style={{fontSize: '0.9rem', background: 'none', border: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer'}}>Blog</button>
               </div>
               <p className="copyright">
                 &copy; 2025 FundConnect. All rights reserved. Empowering chamas across Kenya.

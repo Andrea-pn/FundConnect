@@ -24,8 +24,6 @@ export const useContributionsAnalysis = (chamaId) => {
 
   // Analyze contributions data
   const analyzeContributions = useCallback((contributionsData) => {
-    console.log('Analyzing contributions:', contributionsData.length); // Debug log
-    
     if (!contributionsData.length) {
       setAnalysis({
         totalContributions: 0,
@@ -47,8 +45,6 @@ export const useContributionsAnalysis = (chamaId) => {
     // Basic stats
     const totalContributions = contributionsData.length;
     const totalAmount = contributionsData.reduce((sum, c) => sum + c.amount, 0);
-    
-    console.log('Total contributions:', totalContributions, 'Total amount:', totalAmount); // Debug log
     
     // Group by type (handle missing type field)
     const contributionsByType = contributionsData.reduce((acc, c) => {
@@ -172,19 +168,15 @@ export const useContributionsAnalysis = (chamaId) => {
       }
     };
     
-    console.log('Analysis result:', newAnalysis); // Debug log
     setAnalysis(newAnalysis);
   }, []);
 
   // Fetch contributions data with real-time updates
   useEffect(() => {
     if (!chamaId) {
-      console.log('No chamaId provided'); // Debug log
       setLoading(false);
       return;
     }
-    
-    console.log('Fetching contributions for chama:', chamaId); // Debug log
     
     setLoading(true);
     setError('');
@@ -200,8 +192,6 @@ export const useContributionsAnalysis = (chamaId) => {
       const unsubscribe = onSnapshot(
         contributionsQuery,
         (snapshot) => {
-          console.log('Received snapshot with', snapshot.docs.length, 'documents'); // Debug log
-          
           const contributionsData = snapshot.docs.map(doc => {
             const data = doc.data();
             return {
@@ -213,8 +203,6 @@ export const useContributionsAnalysis = (chamaId) => {
               amount: parseFloat(data.amount) || 0
             };
           });
-          
-          console.log('Processed contributions data:', contributionsData); // Debug log
           
           setContributions(contributionsData);
           analyzeContributions(contributionsData);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { 
   Button, 
   Table,  
@@ -31,18 +31,17 @@ import ListGroup from 'react-bootstrap/ListGroup';
 import { FiSearch } from "react-icons/fi";
 import { useContributionsAnalysis } from '../hooks/useContributionsAnalysis';
 import ContributionsAnalytics from '../components/ContributionsAnalytics';
-import Skeleton from 'react-loading-skeleton';
-import 'react-loading-skeleton/dist/skeleton.css';
+
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const { chama } = useOutletContext();
+
   const { activeChama } = useContext(ChamaContext);
   const [darkMode, setDarkMode] = useState(false);
-  const [loading, setLoading] = useState(true); 
+ 
   
   const { 
     analysis, 
@@ -172,18 +171,8 @@ const AdminDashboard = () => {
     maxWidth: '100%'
   };
 
-  // Calculate summary data
-  const moneyIn = analysis?.totalAmount || 0;
-  const totalContributions = analysis?.totalContributions || 0;
-  const monthlyGrowth = analysis?.monthlyStats?.growth || 0;
-  const calculateGoal = (chama) => {
-    if (!chama || !chama.targetAmount) return 0;
-    
-    // The goal is simply the target amount for the selected contribution period
-    // This is the total amount the chama aims to collect per period
-    return chama.targetAmount;
-  };
-  const goalAmount = calculateGoal(activeChama || chama);
+
+
   // Helper function to get period text
   const getPeriodText = (period) => {
     const periodMap = {
@@ -249,8 +238,8 @@ const AdminDashboard = () => {
   const currentPeriodContributions = calculateCurrentPeriodContributions(contributions, activeChama?.period);
   const progressPercentage = periodGoal > 0 ? 
     Math.min((currentPeriodContributions / periodGoal) * 100, 100) : 0;
-  const moneyOut = 20000; // Keep if you have expense data
-  const balance = moneyIn - moneyOut;
+
+
 
   const [searchTerm, setSearchTerm] = useState('');
 
