@@ -43,10 +43,13 @@ const teamMembers = [
   ];
 
 const LandingPage = () => {
+  console.log('LandingPage component rendering...'); // Debug log
+  
   const navigate = useNavigate();
   const observerRef = useRef(null);
 
   useEffect(() => {
+    console.log('LandingPage useEffect running...'); // Debug log
     // Create intersection observer for smooth animations that work both ways
     const observer = new IntersectionObserver(
       (entries) => {

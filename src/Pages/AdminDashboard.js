@@ -280,7 +280,7 @@ const AdminDashboard = () => {
           }}>
             <div>
               <h1 style={{ color: colors.textPrimary, fontWeight: '300', margin: 0, fontSize: '0.6rem', lineHeight: '1.4' }}>
-                <h1>Welcome to {activeChama?.name || 'your chama'}</h1>
+                Welcome to {activeChama?.name || 'your chama'}
               </h1>
               {/* New Subheading */}
               <p style={{

@@ -499,8 +499,8 @@ const Contributions = () => {
           console.log('No events in subcollection, trying main collection');
           const mainEventsQuery = query(
             collection(db, 'events'),
-            where('chamaId', '==', activeChama.id),
-            orderBy('createdAt', 'desc')
+            where('chamaId', '==', activeChama.id)
+            // Removed orderBy to avoid index requirement
           );
           const mainEventsSnapshot = await getDocs(mainEventsQuery);
           
