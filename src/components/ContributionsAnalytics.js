@@ -28,7 +28,7 @@ const ContributionsAnalytics = ({ analysis, loading, error }) => {
     totalContributions,
     totalAmount,
     monthlyTrend,
-    contributionsByTypeGrouped, // Add this line
+    contributionsByTypeGrouped, // Add this lingit e
     contributionsByStatus,
     topContributors,
     recentContributions,
