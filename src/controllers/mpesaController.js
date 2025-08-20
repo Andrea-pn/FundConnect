@@ -1,142 +1,134 @@
 const axios = require('axios');
-const { 
-  MPESA_API_URL, 
-  MPESA_SHORTCODE, 
-  getAccessToken, 
-  getTimestamp, 
-  generatePassword 
+const {
+  MPESA_API_URL,
+  MPESA_SHORTCODE,
+  MPESA_CONSUMER_KEY,
+  MPESA_CONSUMER_SECRET,
+  MPESA_PASSKEY
 } = require('../config/mpesaConfig');
 
-// Register M-Pesa URLs
-exports.registerUrls = async (req, res) => {
+// Get M-Pesa access token
+const getAccessToken = async () => {
   try {
-    const accessToken = await getAccessToken();
-    const response = await axios.post(
-      `${MPESA_API_URL}/mpesa/c2b/v1/registerurl`,
-      {
-        ShortCode: MPESA_SHORTCODE,
-        ResponseType: 'Completed',
-        ConfirmationURL: `${process.env.BASE_URL}/api/mpesa/confirmation`,
-        ValidationURL: `${process.env.BASE_URL}/api/mpesa/validation`
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+    const auth = Buffer.from(`${MPESA_CONSUMER_KEY}:${MPESA_CONSUMER_SECRET}`).toString('base64');
+    const response = await axios.get(`${MPESA_API_URL}/oauth/v1/generate?grant_type=client_credentials`, {
+      headers: {
+        'Authorization': `Basic ${auth}`
       }
-    );
-
-    res.json(response.data);
-  } catch (error) {
-    console.error('Error registering URLs:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to register M-Pesa URLs',
-      error: error.message
     });
+    return response.data.access_token;
+  } catch (error) {
+    console.error('Error getting access token:', error);
+    throw error;
   }
 };
 
-// Initiate C2B payment
-exports.initiatePayment = async (req, res) => {
+// Generate password for STK push
+const generatePassword = () => {
+  const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0, -3);
+  const password = Buffer.from(`${MPESA_SHORTCODE}${MPESA_PASSKEY}${timestamp}`).toString('base64');
+  return { password, timestamp };
+};
+
+// Initiate STK push payment
+exports.initiateSTKPush = async (req, res) => {
   try {
     const { phoneNumber, amount, reference } = req.body;
     
     if (!phoneNumber || !amount || !reference) {
       return res.status(400).json({
-        status: 'error',
+        success: false,
         message: 'Phone number, amount, and reference are required'
       });
     }
 
     const accessToken = await getAccessToken();
-    const timestamp = getTimestamp();
-    const password = generatePassword(timestamp);
+    const { password, timestamp } = generatePassword();
+    
+    const stkPushData = {
+      BusinessShortCode: MPESA_SHORTCODE,
+      Password: password,
+      Timestamp: timestamp,
+      TransactionType: 'CustomerPayBillOnline',
+      Amount: amount,
+      PartyA: phoneNumber,
+      PartyB: MPESA_SHORTCODE,
+      PhoneNumber: phoneNumber,
+      CallBackURL: `${process.env.BASE_URL}/api/mpesa/stk-callback`,
+      AccountReference: reference,
+      TransactionDesc: 'FundConnect Contribution'
+    };
 
     const response = await axios.post(
-      `${MPESA_API_URL}/mpesa/c2b/v1/simulate`,
-      {
-        ShortCode: MPESA_SHORTCODE,
-        CommandID: 'CustomerPayBillOnline',
-        Amount: amount,
-        Msisdn: phoneNumber,
-        BillRefNumber: reference
-      },
+      `${MPESA_API_URL}/mpesa/stkpush/v1/processrequest`,
+      stkPushData,
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
         }
       }
     );
 
-    res.json(response.data);
-  } catch (error) {
-    console.error('Error initiating payment:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Failed to initiate payment',
-      error: error.message
-    });
-  }
-};
-
-// Handle M-Pesa confirmation
-exports.confirmation = async (req, res) => {
-  try {
-    const data = req.body;
-    console.log('M-Pesa confirmation:', data);
-
-    // Here you would typically:
-    // 1. Verify the transaction
-    // 2. Update your database
-    // 3. Send notifications
-    // 4. Update contribution status
-
     res.json({
-      ResultCode: 0,
-      ResultDesc: 'Success'
+      success: true,
+      data: response.data,
+      message: 'STK push initiated successfully'
     });
   } catch (error) {
-    console.error('Error processing confirmation:', error);
+    console.error('Error initiating STK push:', error);
     res.status(500).json({
-      ResultCode: 1,
-      ResultDesc: 'Failed to process confirmation'
+      success: false,
+      message: 'Failed to initiate STK push'
     });
   }
 };
 
-// Handle M-Pesa validation
-exports.validation = async (req, res) => {
+// Handle STK push callback
+exports.stkCallback = async (req, res) => {
   try {
-    const data = req.body;
-    console.log('M-Pesa validation:', data);
-
-    // Here you would typically:
-    // 1. Validate the transaction details
-    // 2. Check if the amount matches
-    // 3. Verify the account
-
-    res.json({
-      ResultCode: 0,
-      ResultDesc: 'Success'
-    });
+    const { Body } = req.body;
+    const { stkCallback } = Body;
+    
+    if (stkCallback.ResultCode === 0) {
+      // Payment successful
+      const { Amount, MpesaReceiptNumber, TransactionDate, PhoneNumber } = stkCallback.CallbackMetadata.Item;
+      
+      // Here you would update your database with the successful payment
+      console.log('STK push successful:', {
+        amount: Amount,
+        receiptNumber: MpesaReceiptNumber,
+        transactionDate: TransactionDate,
+        phoneNumber: PhoneNumber
+      });
+      
+      res.json({ success: true, message: 'Payment processed successfully' });
+    } else {
+      // Payment failed
+      console.log('STK push failed:', stkCallback.ResultDesc);
+      res.json({ success: false, message: 'Payment failed' });
+    }
   } catch (error) {
-    console.error('Error processing validation:', error);
-    res.status(500).json({
-      ResultCode: 1,
-      ResultDesc: 'Failed to process validation'
-    });
+    console.error('Error handling STK callback:', error);
+    res.status(500).json({ success: false, message: 'Error processing callback' });
   }
 };
 
-// Check payment status
-exports.checkStatus = async (req, res) => {
+// Check STK push payment status
+exports.checkSTKStatus = async (req, res) => {
   try {
     const { checkoutRequestId } = req.params;
-    const accessToken = await getAccessToken();
-    const timestamp = getTimestamp();
-    const password = generatePassword(timestamp);
+    
+    if (!checkoutRequestId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Checkout request ID is required'
+      });
+    }
 
+    const accessToken = await getAccessToken();
+    const { password, timestamp } = generatePassword();
+    
     const response = await axios.post(
       `${MPESA_API_URL}/mpesa/stkpushquery/v1/query`,
       {
@@ -147,18 +139,22 @@ exports.checkStatus = async (req, res) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${accessToken}`
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
         }
       }
     );
 
-    res.json(response.data);
+    res.json({
+      success: true,
+      data: response.data,
+      message: 'Status checked successfully'
+    });
   } catch (error) {
-    console.error('Error checking payment status:', error);
+    console.error('Error checking STK push status:', error);
     res.status(500).json({
-      status: 'error',
-      message: 'Failed to check payment status',
-      error: error.message
+      success: false,
+      message: 'Failed to check payment status'
     });
   }
 }; 

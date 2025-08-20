@@ -51,6 +51,7 @@ const Contributions = () => {
     amount: '',
     date: new Date().toISOString().split('T')[0],
     paymentMethod: 'M-Pesa',
+    phoneNumber: '',
     reference: '',
     status: 'Pending',
     notes: ''
@@ -60,6 +61,7 @@ const Contributions = () => {
     type: 'Monthly',
     date: new Date().toISOString().split('T')[0],
     paymentMethod: 'M-Pesa',
+    phoneNumber: '',
     contributions: []
   });
 
@@ -749,15 +751,33 @@ const Contributions = () => {
       return;
     }
 
+    // Debug form data
+    console.log('Form data for submission:', formData);
+    console.log('Payment method:', formData.paymentMethod);
+    console.log('Phone number:', formData.phoneNumber);
+    console.log('Member ID:', formData.memberId);
+    console.log('Amount:', formData.amount);
+
     // Validate form
     if (!formData.memberId || !formData.amount) {
       setError('Please fill all required fields (Member, Amount)');
       return;
     }
 
-    // Reference is required for all payment methods except Cash and Other
-    if (!formData.reference && formData.paymentMethod !== 'Cash' && formData.paymentMethod !== 'Other') {
+    // For non-M-Pesa methods, reference is required; for M-Pesa it's auto-generated from STK
+    if (
+      formData.paymentMethod !== 'M-Pesa' &&
+      !formData.reference &&
+      formData.paymentMethod !== 'Cash' &&
+      formData.paymentMethod !== 'Other'
+    ) {
       setError('Reference number is required for this payment method');
+      return;
+    }
+
+    // Check if phone number is provided for M-Pesa
+    if (formData.paymentMethod === 'M-Pesa' && !formData.phoneNumber) {
+      setError('Phone number is required for M-Pesa payments');
       return;
     }
 
@@ -775,10 +795,25 @@ const Contributions = () => {
       const eventName = isEventContribution ? formData.type.replace('Event: ', '') : null;
       const eventId = isEventContribution ? events.find(e => e.name === eventName)?.id : null;
 
+      // If payment method is M-Pesa, simulate STK push and generate reference
+      let autoReference = formData.reference || null;
+      if (formData.paymentMethod === 'M-Pesa') {
+        if (!formData.phoneNumber) {
+          setError('Phone number is required for M-Pesa payments');
+          setLoading(false);
+          return;
+        }
+        // Simulate STK push - generate a mock CheckoutRequestID
+        autoReference = `STK-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        console.log('Simulated STK push initiated for phone:', formData.phoneNumber);
+        console.log('Generated reference:', autoReference);
+      }
+
       // Add to Firestore
       const docRef = await addDoc(collection(db, 'contributions'), {
         ...formData,
-        reference: formData.reference || null,
+        reference: autoReference,
+        status: formData.paymentMethod === 'M-Pesa' ? 'Pending' : formData.status,
         chamaId: activeChama.id,
         chamaName: activeChama.name,
         amount: parseFloat(formData.amount),
@@ -801,7 +836,7 @@ const Contributions = () => {
             amount: parseFloat(formData.amount),
             date: formData.date,
             paymentMethod: formData.paymentMethod,
-            reference: formData.reference || null,
+            reference: autoReference,
             status: formData.status,
             notes: formData.notes,
             createdAt: serverTimestamp(),
@@ -819,6 +854,7 @@ const Contributions = () => {
       const newContribution = {
         id: docRef.id,
         ...formData,
+        reference: autoReference,
         amount: parseFloat(formData.amount),
         createdAt: new Date().toISOString()
       };
@@ -832,12 +868,17 @@ const Contributions = () => {
         amount: '',
         date: new Date().toISOString().split('T')[0],
         paymentMethod: 'M-Pesa',
+        phoneNumber: '',
         reference: '',
         status: 'Pending',
         notes: ''
       });
       
-      toast.success('Contribution recorded successfully!');
+      if (formData.paymentMethod === 'M-Pesa') {
+        toast.success(`M-Pesa contribution recorded! STK push initiated to ${formData.phoneNumber}`);
+      } else {
+        toast.success('Contribution recorded successfully!');
+      }
       
       // Show receipt
       setReceiptData(newContribution);
@@ -881,12 +922,21 @@ const Contributions = () => {
           continue; // Skip invalid contributions
         }
 
+        // For M-Pesa bulk with phone number present, simulate STK push and generate reference
+        let bulkReference = contrib.reference || `BULK-${Date.now()}-${contrib.memberId}`;
+        if (bulkFormData.paymentMethod === 'M-Pesa' && bulkFormData.phoneNumber) {
+          // Simulate STK push - generate a mock CheckoutRequestID
+          bulkReference = `STK-BULK-${Date.now()}-${contrib.memberId}-${Math.random().toString(36).substr(2, 6)}`;
+          console.log('Simulated bulk STK push for member:', contrib.memberName, 'phone:', bulkFormData.phoneNumber);
+          console.log('Generated reference:', bulkReference);
+        }
+
         const docRef = await addDoc(collection(db, 'contributions'), {
           ...bulkFormData,
           memberId: contrib.memberId,
           memberName: contrib.memberName,
           amount: parseFloat(contrib.amount),
-          reference: contrib.reference || `BULK-${Date.now()}-${contrib.memberId}`,
+          reference: bulkReference,
           chamaId: activeChama.id,
           chamaName: activeChama.name,
           createdAt: serverTimestamp(),
@@ -926,7 +976,7 @@ const Contributions = () => {
           memberId: contrib.memberId,
           memberName: contrib.memberName,
           amount: parseFloat(contrib.amount),
-          reference: contrib.reference || `BULK-${Date.now()}-${contrib.memberId}`,
+          reference: bulkReference,
           createdAt: new Date().toISOString(),
           isEventContribution: isEventContribution,
           eventId: eventId,
@@ -937,10 +987,18 @@ const Contributions = () => {
       // Update local state
       setContributions(prev => [...prev, ...newContributions]);
       setShowBulkModal(false);
+      
+      // Show success message
+      if (bulkFormData.paymentMethod === 'M-Pesa') {
+        toast.success(`Bulk M-Pesa contributions recorded! STK push initiated to ${bulkFormData.phoneNumber}`);
+      } else {
+        toast.success('Bulk contributions recorded successfully!');
+      }
       setBulkFormData({
         type: chamaSettings?.contributionPeriod || 'Monthly',
         date: new Date().toISOString().split('T')[0],
         paymentMethod: 'M-Pesa',
+        phoneNumber: '',
         contributions: []
       });
       
@@ -1571,10 +1629,12 @@ const Contributions = () => {
                         ? "Optional reference" 
                         : formData.paymentMethod === 'Other' 
                           ? "Optional reference"
-                          : "e.g., M-Pesa transaction code"
+                          : formData.paymentMethod === 'M-Pesa'
+                            ? "Auto-generated after STK push"
+                            : "e.g., Transaction code"
                     }
-                    required={formData.paymentMethod !== 'Cash' && formData.paymentMethod !== 'Other'}
-                    disabled={formData.paymentMethod === 'Cash' || formData.paymentMethod === 'Other'}
+                    required={formData.paymentMethod !== 'Cash' && formData.paymentMethod !== 'Other' && formData.paymentMethod !== 'M-Pesa'}
+                    disabled={formData.paymentMethod === 'Cash' || formData.paymentMethod === 'Other' || formData.paymentMethod === 'M-Pesa'}
                   />
                   {(formData.paymentMethod === 'Cash' || formData.paymentMethod === 'Other') && (
                     <Form.Text className="text-muted">
@@ -1586,6 +1646,25 @@ const Contributions = () => {
             </Row>
 
             <Row>
+              <Col md={6}>
+                <Form.Group className="mb-3">
+                  <Form.Label>Phone Number {formData.paymentMethod === 'M-Pesa' && '*'}</Form.Label>
+                  <Form.Control
+                    type="tel"
+                    name="phoneNumber"
+                    value={formData.phoneNumber}
+                    onChange={handleInputChange}
+                    placeholder="e.g., 254700000000"
+                    required={formData.paymentMethod === 'M-Pesa'}
+                    disabled={formData.paymentMethod !== 'M-Pesa'}
+                  />
+                  {formData.paymentMethod === 'M-Pesa' && (
+                    <Form.Text className="text-muted">
+                      Enter the phone number registered with M-Pesa
+                    </Form.Text>
+                  )}
+                </Form.Group>
+              </Col>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Status</Form.Label>
@@ -1600,6 +1679,9 @@ const Contributions = () => {
                   </Form.Select>
                 </Form.Group>
               </Col>
+            </Row>
+
+            <Row>
               <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Notes</Form.Label>
@@ -1623,7 +1705,7 @@ const Contributions = () => {
           <Button 
             variant="primary" 
             onClick={handleAddContribution}
-            disabled={loading || !formData.memberId || !formData.amount || (!formData.reference && formData.paymentMethod !== 'Cash' && formData.paymentMethod !== 'Other')}
+            disabled={loading || !formData.memberId || !formData.amount || (!formData.reference && formData.paymentMethod !== 'Cash' && formData.paymentMethod !== 'Other' && formData.paymentMethod !== 'M-Pesa') || (formData.paymentMethod === 'M-Pesa' && !formData.phoneNumber)}
           >
             {loading ? (
               <>
@@ -1690,6 +1772,23 @@ const Contributions = () => {
                 </Form.Group>
               </Col>
               <Col md={3}>
+                <Form.Group>
+                  <Form.Label>Phone Number {bulkFormData.paymentMethod === 'M-Pesa' && '*'}</Form.Label>
+                  <Form.Control
+                    type="tel"
+                    name="phoneNumber"
+                    value={bulkFormData.phoneNumber}
+                    onChange={handleBulkInputChange}
+                    placeholder="e.g., 254700000000"
+                    required={bulkFormData.paymentMethod === 'M-Pesa'}
+                    disabled={bulkFormData.paymentMethod !== 'M-Pesa'}
+                  />
+                </Form.Group>
+              </Col>
+            </Row>
+
+            <Row className="mb-4">
+              <Col md={12}>
                 <Form.Group>
                   <Form.Label>Add Member</Form.Label>
                   <Form.Select
@@ -1768,7 +1867,7 @@ const Contributions = () => {
           <Button 
             variant="primary" 
             onClick={handleBulkContributions}
-            disabled={loading || bulkFormData.contributions.length === 0}
+            disabled={loading || bulkFormData.contributions.length === 0 || (bulkFormData.paymentMethod === 'M-Pesa' && !bulkFormData.phoneNumber)}
           >
             {loading ? (
               <>

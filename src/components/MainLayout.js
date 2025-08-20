@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Navbar, Nav, Dropdown, Button, Badge } from 'react-bootstrap';
-import { FiBell, FiUser, FiSettings, FiLogOut, FiSun, FiMoon, FiSearch } from 'react-icons/fi';
+import { FiBell, FiUser, FiSettings, FiLogOut, FiSun, FiMoon } from 'react-icons/fi';
 import { getAuth, signOut } from 'firebase/auth';
 import Sidebar from './Sidebar';
 
@@ -11,8 +11,10 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
     return localStorage.getItem('sidebarCollapsed') === 'true';
   });
   
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Responsive state
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
+  
   const [notifications, setNotifications] = useState([]);
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
@@ -33,12 +35,13 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
   // Handle screen resize for responsive behavior
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth <= 768;
-      setIsMobile(mobile);
-      if (mobile) {
-        setMobileMenuOpen(false);
-      }
+      const width = window.innerWidth;
+      setIsMobile(width <= 768);
+      setIsTablet(width > 768 && width <= 1024);
     };
+
+    // Set initial state
+    handleResize();
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -51,16 +54,7 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
 
   // Handle sidebar toggle
   const handleSidebarToggle = (newState) => {
-    if (isMobile) {
-      setMobileMenuOpen(newState);
-    } else {
-      setSidebarCollapsed(newState);
-    }
-  };
-
-  // Handle mobile menu close
-  const handleMobileClose = () => {
-    setMobileMenuOpen(false);
+    setSidebarCollapsed(newState);
   };
 
   // Handle logout
@@ -78,97 +72,69 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
     setDarkMode(!darkMode);
   };
 
-  // Calculate margins and widths based on sidebar state
+  // Calculate margins and widths based on screen size and sidebar state
   const getMainContentStyles = () => {
     if (isMobile) {
       return {
-        marginLeft: '0',
+        marginLeft: 0,
         width: '100%',
-        padding: '80px 0 0 0', // Increased top padding for fixed navbar on mobile
+        padding: '0',
+        marginBottom: '70px', // Adjusted for reduced sidebar height
+        flex: '0 0 auto',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        backgroundColor: '#f8f9fa',
+        minHeight: '100vh',
+        position: 'relative',
+        overflow: 'hidden'
+      };
+    } else if (isTablet) {
+      return {
+        marginLeft: 0,
+        width: '100%',
+        padding: '0',
+        marginBottom: '90px', // Adjusted for reduced sidebar height
+        flex: '0 0 auto',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        backgroundColor: '#f8f9fa',
+        minHeight: '100vh',
+        position: 'relative',
+        overflow: 'hidden'
+      };
+    } else {
+      return {
+        marginLeft: sidebarCollapsed ? '70px' : '250px',
+        width: `calc(100% - ${sidebarCollapsed ? '70px' : '250px'})`,
+        padding: '0',
+        flex: '0 0 auto',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        backgroundColor: '#f8f9fa',
+        minHeight: '100vh',
+        position: 'relative',
+        overflow: 'hidden'
       };
     }
-    
-    return {
-      marginLeft: sidebarCollapsed ? '70px' : '250px',
-      width: `calc(100% - ${sidebarCollapsed ? '70px' : '250px'})`,
-      padding: '0', // Remove all padding from main content
-    };
   };
 
   return (
     <div className={`app-container ${darkMode ? 'dark' : 'light'}`} 
          style={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
       
-      {/* Mobile Overlay */}
-      {isMobile && mobileMenuOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 999,
-            transition: 'all 0.3s ease'
-          }}
-          onClick={handleMobileClose}
-        />
-      )}
-
       {/* Sidebar - MAKE SURE ALL PROPS ARE PASSED HERE */}
       <Sidebar 
         darkMode={darkMode}
         isCollapsed={sidebarCollapsed}
         isMobile={isMobile}
-        mobileMenuOpen={mobileMenuOpen}
+        isTablet={isTablet}
         onToggle={handleSidebarToggle}
-        onMobileClose={handleMobileClose}
         logo2={null} // Add your logo here if you have one
       />
-
-      {/* Mobile Menu Button */}
-      {isMobile && !mobileMenuOpen && (
-        <button
-          onClick={() => setMobileMenuOpen(true)}
-          style={{
-            position: 'fixed',
-            top: '90px', // Position below the fixed navbar
-            left: '20px',
-            zIndex: 1001,
-            backgroundColor: darkMode ? '#1a1a2e' : '#034a31',
-            color: 'white',
-            border: 'none',
-            padding: '12px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '44px',
-            height: '44px',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.transform = 'scale(1.05)';
-            e.target.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.transform = 'scale(1)';
-            e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-          }}
-        >
-          <i className="fas fa-bars" style={{ fontSize: '16px' }}></i>
-        </button>
-      )}
 
       {/* Main Content Area */}
       <div 
         className="main-content" 
         style={{ 
           ...getMainContentStyles(),
-          flex: isMobile ? '1' : 'none',
+          flex: '1', // Removed flex: '1'
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           backgroundColor: darkMode ? '#2a2a2a' : '#f8f9fa',
           minHeight: '100vh',
@@ -181,18 +147,23 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
           bg={darkMode ? 'dark' : 'light'} 
           variant={darkMode ? 'dark' : 'light'}
           style={{
-            position: 'fixed', // Changed from 'sticky' to 'fixed'
+            position: 'fixed',
             top: 0,
-            left: sidebarCollapsed ? '70px' : '250px', // Position relative to sidebar
+            left: sidebarCollapsed ? '70px' : '250px',
             right: 0,
             zIndex: 1000,
             borderBottom: `2px solid ${darkMode ? '#33a17c' : '#034a31'}`,
             backgroundColor: darkMode ? '#1a1a2e' : '#034a31',
-            padding: '15px 20px',
-            marginLeft: '0', // Ensure no left margin
-            width: 'auto', // Let it fill the available space
+            padding: isMobile ? '8px 12px' : '15px 20px',
+            marginLeft: '0',
+            width: 'auto',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+            ...(isMobile || isTablet ? {
+              left: 0,
+              right: 0,
+              width: '100%'
+            } : {})
           }}
         >
           <div className="d-flex align-items-center" style={{ flex: 1 }}>
@@ -200,45 +171,17 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
               margin: 0, 
               color: 'white',
               fontWeight: 'bold',
-              fontSize: '1.5rem'
+              fontSize: isMobile ? '1rem' : '1.5rem'
             }}>
               FundConnect
             </h4>
           </div>
 
-          {/* Search Bar */}
-          <div className="d-flex align-items-center me-3" style={{ minWidth: '300px' }}>
-            <div className="position-relative">
-              <FiSearch 
-                style={{ 
-                  position: 'absolute', 
-                  left: '12px', 
-                  top: '50%', 
-                  transform: 'translateY(-50%)',
-                  color: 'white',
-                  zIndex: 1
-                }} 
-              />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="form-control"
-                style={{
-                  paddingLeft: '40px',
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                  border: '2px solid rgba(255,255,255,0.3)',
-                  color: 'white',
-                  borderRadius: '25px',
-                  fontSize: '14px',
-                  height: '40px'
-                }}
-              />
-            </div>
-          </div>
-
           {/* Right Side Navigation Items */}
-          <Nav className="ms-auto d-flex align-items-center">
-            {/* Dark Mode Toggle */}
+          <Nav className="ms-auto d-flex align-items-center" style={{
+            gap: isMobile ? '4px' : '8px'
+          }}>
+            {/* Dark Mode Toggle - Available on all devices */}
             <Button
               variant="outline-secondary"
               size="sm"
@@ -247,9 +190,9 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
                 border: '2px solid rgba(255,255,255,0.3)',
                 backgroundColor: 'rgba(255,255,255,0.1)',
                 color: 'white',
-                marginRight: '15px',
-                borderRadius: '20px',
-                padding: '8px 12px',
+                marginRight: 0,
+                borderRadius: isMobile ? '16px' : '20px',
+                padding: isMobile ? '6px 8px' : '8px 12px',
                 transition: 'all 0.3s ease'
               }}
               onMouseEnter={(e) => {
@@ -261,11 +204,11 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
                 e.target.style.borderColor = 'rgba(255,255,255,0.3)';
               }}
             >
-              {darkMode ? <FiSun size={18} /> : <FiMoon size={18} />}
+              {darkMode ? <FiSun size={isMobile ? 16 : 18} /> : <FiMoon size={isMobile ? 16 : 18} />}
             </Button>
 
-            {/* Notifications */}
-            <Dropdown className="me-3">
+            {/* Notifications - Compact on mobile */}
+            <Dropdown>
               <Dropdown.Toggle
                 variant="outline-secondary"
                 style={{
@@ -273,8 +216,8 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
                   backgroundColor: 'rgba(255,255,255,0.1)',
                   color: 'white',
                   position: 'relative',
-                  borderRadius: '20px',
-                  padding: '8px 12px',
+                  borderRadius: isMobile ? '16px' : '20px',
+                  padding: isMobile ? '6px 8px' : '8px 12px',
                   transition: 'all 0.3s ease'
                 }}
                 onMouseEnter={(e) => {
@@ -286,16 +229,21 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
                   e.target.style.borderColor = 'rgba(255,255,255,0.3)';
                 }}
               >
-                <FiBell size={18} />
+                <FiBell size={isMobile ? 16 : 18} />
                 {notifications.length > 0 && (
                   <Badge
                     bg="danger"
                     style={{
                       position: 'absolute',
-                      top: '-8px',
-                      right: '-8px',
-                      fontSize: '10px',
-                      border: '2px solid #fff'
+                      top: isMobile ? '-6px' : '-8px',
+                      right: isMobile ? '-6px' : '-8px',
+                      fontSize: isMobile ? '8px' : '10px',
+                      border: '2px solid #fff',
+                      minWidth: isMobile ? '14px' : '16px',
+                      height: isMobile ? '14px' : '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
                   >
                     {notifications.length}
@@ -307,7 +255,18 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
                   backgroundColor: darkMode ? '#2a2a2a' : '#fff',
                   border: `2px solid ${darkMode ? '#33a17c' : '#034a31'}`,
                   borderRadius: '10px',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                  ...(isMobile || isTablet ? {
+                    position: 'fixed',
+                    top: 'auto',
+                    bottom: isMobile ? '70px' : '90px',
+                    left: '10px',
+                    right: '10px',
+                    width: 'auto',
+                    maxHeight: '250px',
+                    overflowY: 'auto',
+                    zIndex: 1001
+                  } : {})
                 }}
               >
                 {notifications.length > 0 ? (
@@ -365,9 +324,9 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
                   color: 'white',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  borderRadius: '20px',
-                  padding: '8px 15px',
+                  gap: isMobile ? '4px' : '8px',
+                  borderRadius: isMobile ? '16px' : '20px',
+                  padding: isMobile ? '6px 10px' : '8px 15px',
                   transition: 'all 0.3s ease'
                 }}
                 onMouseEnter={(e) => {
@@ -379,17 +338,30 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
                   e.target.style.borderColor = 'rgba(255,255,255,0.3)';
                 }}
               >
-                <FiUser size={18} />
-                <span style={{ fontSize: '14px', fontWeight: '500' }}>
-                  {user?.displayName || user?.email || 'User'}
-                </span>
+                <FiUser size={isMobile ? 16 : 18} />
+                {!isMobile && (
+                  <span style={{ fontSize: '14px', fontWeight: '500' }}>
+                    {user?.displayName || user?.email || 'User'}
+                  </span>
+                )}
               </Dropdown.Toggle>
               <Dropdown.Menu
                 style={{
                   backgroundColor: darkMode ? '#2a2a2a' : '#fff',
                   border: `2px solid ${darkMode ? '#33a17c' : '#034a31'}`,
                   borderRadius: '10px',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                  ...(isMobile || isTablet ? {
+                    position: 'fixed',
+                    top: 'auto',
+                    bottom: isMobile ? '70px' : '90px',
+                    left: '10px',
+                    right: '10px',
+                    width: 'auto',
+                    maxHeight: '250px',
+                    overflowY: 'auto',
+                    zIndex: 1001
+                  } : {})
                 }}
               >
                 <Dropdown.Item
@@ -446,7 +418,7 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
           maxWidth: '100%',
           margin: '0 auto',
           position: 'relative',
-          padding: '80px 20px 20px 20px' // Increased top padding to account for fixed navbar
+          padding: isMobile ? '20px 20px 20px 20px' : '20px 20px 20px 20px' // Top padding handled by CSS
         }}>
           <Outlet /> {/* This renders the child routes */}
         </div>

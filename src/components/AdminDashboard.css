@@ -146,21 +146,6 @@
     color: white;
     }
     
-    /* RESPONSIVE */
-    @media (max-width: 768px) {
-    .admin-dashboard {
-    flex-direction: column;
-    }
-    
-    .sidebar {
-    width: 100%;
-    box-shadow: none;
-    }
-    
-    .main-content {
-    padding: 15px;
-    }
-    }
     /* AdminDashboard.css */
     
     /* General Styling */
@@ -242,18 +227,6 @@
     animation: fadeIn 0.5s ease;
     }
     
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-    .admin-dashboard {
-    flex-direction: column;
-    }
-    
-    .sidebar {
-    width: 100% !important;
-    max-height: 200px;
-    overflow-y: auto;
-    }
-    }
     /* Modal styles */
 .modal-content {
     border-radius: 12px;
