@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { Form, Button, Container, Alert, Card, Row, Col, Image } from "react-bootstrap";
+import { Form, Button, Container, Alert, Card, Row, Col, Spinner } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
-import { FaFacebook, FaGoogle, FaPhone } from "react-icons/fa";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 import { toast } from "react-toastify";
+import logo from "../components/logo.png";
 import "../styles.css";
 
 const Login = () => {
@@ -34,80 +34,105 @@ const Login = () => {
     }
   };
 
-  const handleSocialLogin = (provider) => {
-    toast.info(`${provider} login coming soon!`, { position: "bottom-center" });
-  };
 
   return (
-    <Container fluid className="auth-container d-flex align-items-center justify-content-center" style={{marginTop: "5vw"}}>
-      <Row className="auth-row g-0">
-        <Col md={6} className="d-none d-md-block">
-          <Card className="auth-image-card h-100 position-relative">
-            <Image
-              src="/jImages/auth-image.jpg"
-              alt="Log In"
-              className="auth-image"
-              fluid
+    <Container fluid className="auth-container d-flex align-items-center justify-content-center" style={{
+      minHeight: "100vh",
+      background: "linear-gradient(135deg, #f5f7fa 0%, #e4efe9 100%)",
+      padding: "20px",
+      margin: 0
+    }}>
+      <Row className="justify-content-center w-100 g-0">
+        <Col xs={12} md={8} lg={6} xl={5}>
+        {/* Logo Container */}
+          <div className="text-center mb-4">
+            <img 
+              src={logo} // Update with your logo path
+              alt="Company Logo"
+              style={{
+                height: "60px", // Adjust size as needed
+                width: "auto",
+                marginBottom: "1.5rem",
+                objectFit: "contain"
+              }}
             />
-            <div className="social-login-overlay">
-              <h3 className="text-white mb-4">Log In With</h3>
-              <Button 
-                variant="primary" 
-                className="social-btn facebook-btn mb-3"
-                onClick={() => handleSocialLogin('Facebook')}
-                disabled={loading}
-              >
-                <FaFacebook className="me-2" />
-                Continue with Facebook
-              </Button>
-              <Button 
-                variant="danger" 
-                className="social-btn google-btn mb-3"
-                onClick={() => handleSocialLogin('Google')}
-                disabled={loading}
-              >
-                <FaGoogle className="me-2" />
-                Continue with Google
-              </Button>
-              <Button 
-                variant="dark" 
-                className="social-btn phone-btn"
-                onClick={() => handleSocialLogin('Phone')}
-                disabled={loading}
-              >
-                <FaPhone className="me-2" />
-                Continue with Phone
-              </Button>
-            </div>
-          </Card>
-        </Col>
+            <p style={{
+              color: "#5a6d61",
+              fontSize: "0.95rem",
+              fontWeight: "500",
+              letterSpacing: "0.3px",
+              margin: "0.5rem 0 0",
+              lineHeight: "1.4",
+              fontStyle: "italic"
+            }}>
+              Simplifying financial management for chamas
+            </p>
+          </div>
 
-        <Col md={6}>
-          <Card className="auth-form-card h-100">
+          <Card className="border-0 shadow-lg" style={{
+            borderRadius: "15px",
+            overflow: "hidden",
+            backgroundColor: "#ffffff"
+          }}>
             <Card.Body className="p-4 p-md-5">
-              <h2 className="text-center mb-4">Log In</h2>
-              {error && <Alert variant="danger">{error}</Alert>}
+              <div className="text-center mb-4">
+                <h2 style={{
+                  color: "#034a31",
+                  fontWeight: "600",
+                  marginBottom: "0.5rem"
+                }}>Log In</h2>
+                <p style={{ color: "#5a6d61", fontSize: "0.9rem" }}>Welcome back! Please enter your details</p>
+              </div>
+
+              {error && <Alert variant="danger" className="text-center" style={{
+                borderRadius: "8px",
+                border: "none",
+                backgroundColor: "#f8d7da",
+                color: "#721c24",
+                marginBottom: "1.5rem"
+              }}>{error}</Alert>}
+
               <Form onSubmit={handleSubmit}>
                 <Form.Group className="mb-3" controlId="formBasicEmail">
-                  <Form.Label>Email address</Form.Label>
+                  <Form.Label style={{
+                    color: "#034a31",
+                    fontWeight: "500",
+                    marginBottom: "0.5rem"
+                  }}>Email address</Form.Label>
                   <Form.Control
                     type="email"
                     placeholder="Enter email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="py-2"
+                    style={{
+                      borderRadius: "8px",
+                      border: "1px solid #d1e7dd",
+                      transition: "all 0.3s",
+                      padding: "0.75rem 1rem"
+                    }}
                     disabled={loading}
                   />
                 </Form.Group>
 
                 <Form.Group className="mb-3" controlId="formBasicPassword">
-                  <Form.Label>Password</Form.Label>
+                  <Form.Label style={{
+                    color: "#034a31",
+                    fontWeight: "500",
+                    marginBottom: "0.5rem"
+                  }}>Password</Form.Label>
                   <Form.Control
                     type="password"
                     placeholder="Password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="py-2"
+                    style={{
+                      borderRadius: "8px",
+                      border: "1px solid #d1e7dd",
+                      transition: "all 0.3s",
+                      padding: "0.75rem 1rem"
+                    }}
                     disabled={loading}
                   />
                 </Form.Group>
@@ -115,48 +140,46 @@ const Login = () => {
                 <Button 
                   variant="primary" 
                   type="submit" 
-                  className="Hbutton w-100 py-2 mt-3"
+                  className="w-100 py-2 mt-3"
                   disabled={loading}
+                  style={{
+                    backgroundColor: "#034a31",
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "0.75rem",
+                    fontWeight: "600",
+                    letterSpacing: "0.5px",
+                    transition: "all 0.3s",
+                    boxShadow: "0 4px 6px rgba(3, 74, 49, 0.2)",
+                    height: "3rem",
+                    display: "block",    // Ensures proper centering
+                    width: "100%",       // Takes full container width
+                    margin: "1.5rem auto 0" // Top margin only, auto for horizontal centering
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = "#033a27"}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = "#034a31"}
                 >
-                  {loading ? 'Logging in...' : 'Log In'}
+                  {loading ? (
+                    <>
+                      <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2" />
+                      Logging in...
+                    </>
+                  ) : 'Log In'}
                 </Button>
               </Form>
 
-              <div className="d-md-none mt-4">
-                <div className="text-center mb-3">
-                  <span className="text-muted">Or log in with</span>
-                </div>
-                <Button 
-                  variant="primary" 
-                  className="social-btn facebook-btn mb-3 w-100"
-                  onClick={() => handleSocialLogin('Facebook')}
-                  disabled={loading}
+              <p className="text-center mt-4 mb-0" style={{ color: "#5a6d61" }}>
+                Don't have an account?{' '}
+                <Link to="/signin" className="text-decoration-none" style={{
+                  color: "#33a17c",
+                  fontWeight: "500",
+                  transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => e.target.style.color = "#034a31"}
+                onMouseLeave={(e) => e.target.style.color = "#33a17c"}
                 >
-                  <FaFacebook className="me-2" />
-                  Facebook
-                </Button>
-                <Button 
-                  variant="danger" 
-                  className="social-btn google-btn mb-3 w-100"
-                  onClick={() => handleSocialLogin('Google')}
-                  disabled={loading}
-                >
-                  <FaGoogle className="me-2" />
-                  Google
-                </Button>
-                <Button 
-                  variant="dark" 
-                  className="social-btn phone-btn w-100"
-                  onClick={() => handleSocialLogin('Phone')}
-                  disabled={loading}
-                >
-                  <FaPhone className="me-2" />
-                  Phone
-                </Button>
-              </div>
-
-              <p className="text-center mt-4 mb-0">
-                Don't have an account? <Link to="/signin" className="text-decoration-none">Sign Up</Link>
+                  Sign Up
+                </Link>
               </p>
             </Card.Body>
           </Card>

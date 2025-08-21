@@ -5,6 +5,7 @@ import { auth, db } from './firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import './styles.css';
 
 import MainLayout from './components/MainLayout';
 import LandingPage from './Pages/LandingPage';
@@ -36,10 +37,6 @@ function App() {
   const [user, loading] = useAuthState(auth);
   const navigate = useNavigate();
   const location = useLocation();
-
-  useEffect(() => {
-    console.log('Current route:', location.pathname);
-  }, [location]);
 
   const fetchChamaData = async (chamaId) => {
     if (!chamaId) return;
@@ -82,14 +79,14 @@ function App() {
 
   // Handle route changes to fetch chama data
   useEffect(() => {
-  const pathParts = location.pathname.split('/');
-  if (pathParts[1] === 'chama' && pathParts[2]) {
-    const chamaId = pathParts[2];
-    if (!activeChama || activeChama.id !== chamaId) {
-      fetchChamaData(chamaId);
+    const pathParts = location.pathname.split('/');
+    if (pathParts[1] === 'chama' && pathParts[2]) {
+      const chamaId = pathParts[2];
+      if (!activeChama || activeChama.id !== chamaId) {
+        fetchChamaData(chamaId);
+      }
     }
-  }
- }, [location.pathname, activeChama, fetchChamaData]);
+  }, [location.pathname, activeChama, fetchChamaData]);
 
   // Redirect logged in users away from auth pages
   useEffect(() => {
@@ -130,37 +127,36 @@ function App() {
         theme={darkMode ? 'dark' : 'light'}
       />
 
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signin" element={<SignIn />} />
 
-<Routes>
-  {/* Public routes */}
-  <Route path="/" element={<LandingPage />} />
-  <Route path="/login" element={<Login />} />
-  <Route path="/signin" element={<SignIn />} />
+        {/* Protected routes */}
+        <Route element={
+          <ProtectedRoute>
+            <MainLayout darkMode={darkMode} setDarkMode={setDarkMode} />
+          </ProtectedRoute>
+        }>
+          <Route path="/home" element={<HomePage />} />
+          
+          {/* Chama routes - Single protection layer */}
+          <Route path="/chama/:id" element={
+            <ChamaRouteWrapper darkMode={darkMode} />
+          }>
+            <Route index element={<Dashboard />} />
+            <Route path="members" element={<Members />} />
+            <Route path="contributions" element={<Contributions />} />
+            <Route path="events" element={<Events />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="invitations" element={<InvitationsPage />} />
+          </Route>
+        </Route>
 
-  {/* Protected routes */}
-  <Route element={
-    <ProtectedRoute>
-      <MainLayout darkMode={darkMode} setDarkMode={setDarkMode} />
-    </ProtectedRoute>
-  }>
-    <Route path="/home" element={<HomePage />} />
-    
-    {/* Chama routes - Single protection layer */}
-    <Route path="/chama/:id" element={
-      <ChamaRouteWrapper darkMode={darkMode} />
-    }>
-      <Route index element={<Dashboard />} />
-      <Route path="members" element={<Members />} />
-      <Route path="contributions" element={<Contributions />} />
-      <Route path="events" element={<Events />} />
-      <Route path="settings" element={<Settings />} />
-      <Route path="invitations" element={<InvitationsPage />} />
-    </Route>
-  </Route>
-
-  {/* Fallback */}
-  <Route path="*" element={<Navigate to="/" replace />} />
-</Routes>
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </ChamaContext.Provider>
   );
 }
