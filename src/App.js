@@ -5,6 +5,7 @@ import { auth, db } from './firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import './styles.css';
 
 import MainLayout from './components/MainLayout';
 import LandingPage from './Pages/LandingPage';

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Form, Button, Container, Alert, Card, Row, Col, Spinner } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
-import './style.css';
+import '../styles.css';
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { setDoc, doc } from "firebase/firestore";

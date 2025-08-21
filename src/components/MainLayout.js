@@ -84,7 +84,8 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
         backgroundColor: '#f8f9fa',
         minHeight: '100vh',
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        paddingTop: '60px' // Reduced top padding for better spacing on mobile
       };
     } else if (isTablet) {
       return {
@@ -97,7 +98,8 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
         backgroundColor: '#f8f9fa',
         minHeight: '100vh',
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        paddingTop: '60px' // Reduced top padding for better spacing on tablet
       };
     } else {
       return {
@@ -109,7 +111,8 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
         backgroundColor: '#f8f9fa',
         minHeight: '100vh',
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        paddingTop: '60px' // Reduced top padding for better spacing on desktop
       };
     }
   };
@@ -156,6 +159,9 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
             padding: isMobile ? '8px 12px' : '15px 20px',
             marginLeft: '0',
             width: 'auto',
+            height: '80px', // Fixed height for consistent spacing
+            display: 'flex',
+            alignItems: 'center',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
             ...(isMobile || isTablet ? {
@@ -238,8 +244,7 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
                   boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
                   ...(isMobile || isTablet ? {
                     position: 'fixed',
-                    top: 'auto',
-                    bottom: isMobile ? '70px' : '90px',
+                    top: '60px', // Position below navbar instead of at bottom
                     left: '10px',
                     right: '10px',
                     width: 'auto',
@@ -309,8 +314,7 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
                   boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
                   ...(isMobile || isTablet ? {
                     position: 'fixed',
-                    top: 'auto',
-                    bottom: isMobile ? '70px' : '90px',
+                    top: '60px', // Position below navbar instead of at bottom
                     left: '10px',
                     right: '10px',
                     width: 'auto',
@@ -373,7 +377,8 @@ const MainLayout = ({ darkMode, setDarkMode }) => {
           maxWidth: '100%',
           margin: '0 auto',
           position: 'relative',
-          padding: isMobile ? '20px 20px 20px 20px' : '20px 20px 20px 20px' // Top padding handled by CSS
+          padding: isMobile ? '60px 20px 20px 20px' : '60px 20px 20px 20px',
+          minHeight: 'calc(100vh - 60px)' // Adjusted height calculation
         }}>
           <Outlet /> {/* This renders the child routes */}
         </div>

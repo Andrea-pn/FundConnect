@@ -3,7 +3,7 @@ import { Container, Navbar, Nav, Button, Row, Col, Image, Card } from "react-boo
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
-import './style.css';
+import '../styles.css';
 import { Typewriter } from 'react-simple-typewriter';
 import logo3 from '../components/logo3.png';
 import logo2 from '../components/logo2.png';
