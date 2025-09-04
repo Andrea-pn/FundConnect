@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { Form, Button, Container, Alert, Card, Row, Col, Image, Spinner } from "react-bootstrap";
+import { Form, Button, Container, Alert, Card, Row, Col, Spinner } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
-import { FaFacebook, FaGoogle, FaPhone } from "react-icons/fa";
 import './style.css';
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../firebase";
 import { setDoc, doc } from "firebase/firestore";
 import { toast } from "react-toastify";
+import logo from "../components/logo.png";
 
 const SignUp = () => {
   const [formData, setFormData] = useState({
@@ -100,68 +100,74 @@ const SignUp = () => {
     }
   };
 
-  const handleSocialLogin = (provider) => {
-    // Implement social login logic here
-    console.log(`Signing in with ${provider}`);
-    toast.info(`${provider} login coming soon!`, {
-      position: "top-right"
-    });
-  };
 
   return (
-    <Container fluid className="auth-container d-flex align-items-center justify-content-center" style={{ marginTop: "2vw" }}>
-      <Row className="auth-row g-0">
-        {/* Image Card with Social Login Buttons */}
-        <Col md={6} className="d-none d-md-block">
-          <Card className="auth-image-card h-100 position-relative">
-            <Image
-              src="/jImages/auth-image.jpg"
-              alt="Sign Up"
-              className="auth-image"
-              fluid
-            />
-            <div className="social-login-overlay">
-              <h3 className="text-white mb-4">Sign Up With</h3>
-              <Button 
-                variant="primary" 
-                className="social-btn facebook-btn mb-3"
-                onClick={() => handleSocialLogin('facebook')}
-              >
-                <FaFacebook className="me-2" />
-                Continue with Facebook
-              </Button>
-              <Button 
-                variant="danger" 
-                className="social-btn google-btn mb-3"
-                onClick={() => handleSocialLogin('google')}
-              >
-                <FaGoogle className="me-2" />
-                Continue with Google
-              </Button>
-              <Button 
-                variant="dark" 
-                className="social-btn phone-btn"
-                onClick={() => handleSocialLogin('phone')}
-              >
-                <FaPhone className="me-2" />
-                Continue with Phone
-              </Button>
-            </div>
-          </Card>
-        </Col>
-
+    <Container fluid className="auth-container d-flex align-items-center justify-content-center" style={{ 
+      minHeight: "100vh",
+      background: "linear-gradient(135deg, #f5f7fa 0%, #e4efe9 100%)",
+      padding: "1rem"  // Reduced padding for mobile
+    }}>
+      <Row className="auth-row g-0 justify-content-center" style={{ 
+        width: "100%",
+        maxWidth: "1200px",
+        margin: "0 auto"
+      }}>
         {/* Form Card */}
-        <Col md={6}>
-          <Card className="auth-form-card h-100">
+        <Col xs={12} sm={10} md={8} lg={6} xl={5}>  {/* Better mobile-first sizing */}
+          {/* Logo Container */}
+          <div className="text-center mb-4">
+            <img 
+              src={logo} // Update with your logo path
+              alt="Company Logo"
+              style={{
+                height: "60px", // Adjust size as needed
+                width: "auto",
+                marginBottom: "1.5rem",
+                objectFit: "contain"
+              }}
+            />
+            <p style={{
+              color: "#5a6d61",
+              fontSize: "0.95rem",
+              fontWeight: "500",
+              letterSpacing: "0.3px",
+              margin: "0.5rem 0 0",
+              lineHeight: "1.4",
+              fontStyle: "italic"
+            }}>
+              Simplifying financial management for chamas
+            </p>
+          </div>
+
+          <Card className="auth-form-card" style={{
+            border: "none",
+            borderRadius: "15px",
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.1)",
+            overflow: "hidden",
+            width: "100%"
+          }}>
             <Card.Body className="p-4 p-md-5">
-              <h2 className="text-center mb-4">Create Account</h2>
-              {error && <Alert variant="danger" className="text-center">{error}</Alert>}
+              <div className="text-center mb-4">
+                <h2 style={{
+                  color: "#034a31",
+                  fontWeight: "600",
+                  marginBottom: "10px"
+                }}>Create Account</h2>
+                <p style={{ color: "#5a6d61" }}>Join our community today</p>
+              </div>
+              
+              {error && <Alert variant="danger" className="text-center" style={{
+                borderRadius: "8px",
+                border: "none",
+                backgroundColor: "#f8d7da",
+                color: "#721c24"
+              }}>{error}</Alert>}
               
               <Form onSubmit={handleSubmit}>
                 <Row>
                   <Col md={6}>
                     <Form.Group className="mb-3" controlId="formFirstName">
-                      <Form.Label>First Name *</Form.Label>
+                      <Form.Label style={{ color: "#034a31", fontWeight: "500" }}>First Name *</Form.Label>
                       <Form.Control
                         type="text"
                         name="firstName"
@@ -169,13 +175,18 @@ const SignUp = () => {
                         value={formData.firstName}
                         onChange={handleChange}
                         className="py-2"
+                        style={{
+                          borderRadius: "8px",
+                          border: "1px solid #d1e7dd",
+                          transition: "all 0.3s"
+                        }}
                         required
                       />
                     </Form.Group>
                   </Col>
                   <Col md={6}>
                     <Form.Group className="mb-3" controlId="formLastName">
-                      <Form.Label>Last Name *</Form.Label>
+                      <Form.Label style={{ color: "#034a31", fontWeight: "500" }}>Last Name *</Form.Label>
                       <Form.Control
                         type="text"
                         name="lastName"
@@ -183,6 +194,11 @@ const SignUp = () => {
                         value={formData.lastName}
                         onChange={handleChange}
                         className="py-2"
+                        style={{
+                          borderRadius: "8px",
+                          border: "1px solid #d1e7dd",
+                          transition: "all 0.3s"
+                        }}
                         required
                       />
                     </Form.Group>
@@ -190,7 +206,7 @@ const SignUp = () => {
                 </Row>
 
                 <Form.Group className="mb-3" controlId="formBasicEmail">
-                  <Form.Label>Email Address *</Form.Label>
+                  <Form.Label style={{ color: "#034a31", fontWeight: "500" }}>Email Address *</Form.Label>
                   <Form.Control
                     type="email"
                     name="email"
@@ -198,12 +214,17 @@ const SignUp = () => {
                     value={formData.email}
                     onChange={handleChange}
                     className="py-2"
+                    style={{
+                      borderRadius: "8px",
+                      border: "1px solid #d1e7dd",
+                      transition: "all 0.3s"
+                    }}
                     required
                   />
                 </Form.Group>
 
                 <Form.Group className="mb-3" controlId="formPhoneNumber">
-                  <Form.Label>Phone Number</Form.Label>
+                  <Form.Label style={{ color: "#034a31", fontWeight: "500" }}>Phone Number</Form.Label>
                   <Form.Control
                     type="tel"
                     name="phoneNumber"
@@ -211,11 +232,16 @@ const SignUp = () => {
                     value={formData.phoneNumber}
                     onChange={handleChange}
                     className="py-2"
+                    style={{
+                      borderRadius: "8px",
+                      border: "1px solid #d1e7dd",
+                      transition: "all 0.3s"
+                    }}
                   />
                 </Form.Group>
 
                 <Form.Group className="mb-3" controlId="formBasicPassword">
-                  <Form.Label>Password *</Form.Label>
+                  <Form.Label style={{ color: "#034a31", fontWeight: "500" }}>Password *</Form.Label>
                   <Form.Control
                     type="password"
                     name="password"
@@ -223,9 +249,14 @@ const SignUp = () => {
                     value={formData.password}
                     onChange={handleChange}
                     className="py-2"
+                    style={{
+                      borderRadius: "8px",
+                      border: "1px solid #d1e7dd",
+                      transition: "all 0.3s"
+                    }}
                     required
                   />
-                  <Form.Text className="text-muted">
+                  <Form.Text className="text-muted" style={{ color: "#6c757d" }}>
                     Minimum 6 characters
                   </Form.Text>
                 </Form.Group>
@@ -233,8 +264,23 @@ const SignUp = () => {
                 <Button 
                   variant="primary" 
                   type="submit" 
-                  className="Hbutton w-100 py-2 mt-3"
+                  className="w-100 py-2 mt-3"
                   disabled={loading}
+                  style={{
+                    backgroundColor: "#034a31",
+                    border: "none",
+                    borderRadius: "8px",
+                    padding: "12px",
+                    fontWeight: "600",
+                    letterSpacing: "0.5px",
+                    transition: "all 0.3s",
+                    boxShadow: "0 4px 6px rgba(3, 74, 49, 0.2)",
+                    display: "block",    // Ensures proper centering
+                    width: "100%",       // Takes full container width
+                    margin: "1.5rem auto 0" // Top margin only, auto for horizontal centering
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = "#033a27"}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = "#034a31"}
                 >
                   {loading ? (
                     <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
@@ -244,39 +290,18 @@ const SignUp = () => {
                 </Button>
               </Form>
 
-              {/* Mobile Social Login Buttons */}
-              <div className="d-md-none mt-4">
-                <div className="text-center mb-3">
-                  <span className="text-muted">Or sign up with</span>
-                </div>
-                <Button 
-                  variant="primary" 
-                  className="social-btn facebook-btn mb-auto w-100"
-                  onClick={() => handleSocialLogin('facebook')}
+              <p className="text-center mt-4 mb-0" style={{ color: "#5a6d61" }}>
+                Already have an account?{' '}
+                <Link to="/login" className="text-decoration-none" style={{
+                  color: "#33a17c",
+                  fontWeight: "500",
+                  transition: "all 0.2s"
+                }}
+                onMouseEnter={(e) => e.target.style.color = "#034a31"}
+                onMouseLeave={(e) => e.target.style.color = "#33a17c"}
                 >
-                  <FaFacebook className="me-2" />
-                  Facebook
-                </Button>
-                <Button 
-                  variant="danger" 
-                  className="social-btn google-btn mb-3 w-100"
-                  onClick={() => handleSocialLogin('google')}
-                >
-                  <FaGoogle className="me-2" />
-                  Google
-                </Button>
-                <Button 
-                  variant="dark" 
-                  className="social-btn phone-btn w-100"
-                  onClick={() => handleSocialLogin('phone')}
-                >
-                  <FaPhone className="me-2" />
-                  Phone
-                </Button>
-              </div>
-
-              <p className="text-center mt-4 mb-0">
-                Already have an account? <Link to="/login" className="text-decoration-none">Log In</Link>
+                  Log In
+                </Link>
               </p>
             </Card.Body>
           </Card>
